@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend
 
-## Getting Started
+Next.js App Router, React, TypeScript, TanStack Query, Axios và Zustand.
 
-First, run the development server:
+## Chạy dự án
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Backend mặc định: `http://localhost:7000/api`. Đổi bằng `NEXT_PUBLIC_API_URL` trong `.env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tổ chức theo tính năng
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Giao diện và nghiệp vụ của một tính năng nằm cạnh nhau trong `app`. `lib` chứa logic và cấu hình dùng chung.
 
-## Learn More
+```text
+app/
+  layout.tsx                  # Layout gốc
+  providers.tsx               # Ghép các provider toàn ứng dụng
+  globals.css
+  page.tsx                    # Trang chủ /
+  auth/
+    login/page.tsx            # /auth/login
+    register/page.tsx         # /auth/register
+    _module/                  # Toàn bộ code nội bộ của tính năng auth
+      LoginForm.tsx           # Giao diện đăng nhập
+      RegisterForm.tsx        # Giao diện đăng ký
+      use-auth.ts             # Hooks query/mutation, điều hướng
+      auth.service.ts         # Các lời gọi API auth
+      auth-client.ts          # Gắn token, xử lý phiên đăng nhập khi lỗi 401
+      auth.store.ts           # Zustand: phiên đăng nhập
+      auth.types.ts           # Kiểu dữ liệu auth
+      auth.keys.ts            # Query keys auth
+      index.ts                # Export dùng bên ngoài tính năng
+lib/
+  env.ts                      # Cấu hình môi trường
+  http/
+    axios-client.ts           # HTTP factory dùng chung
+    http-errors.ts            # Chuẩn hóa lỗi HTTP
+  query/
+    query-client.ts           # Cấu hình cache mặc định
+    QueryProvider.tsx         # Kết nối TanStack Query với React
+```
 
-To learn more about Next.js, take a look at the following resources:
+`_module` là thư mục private của Next.js, không tạo route. Đây là tên quy ước của dự án, không phải tên bắt buộc của framework. Giữ các file cùng cấp khi tính năng còn nhỏ; chỉ chia thêm thư mục khi số lượng file thực sự cần.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+File nháp trống có sẵn `app/(modules)/auth/(homePage)/page.tsx` được giữ nguyên. File này tạo route `/auth` và cần có default export hợp lệ trước khi build toàn dự án.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Quy ước
 
-## Deploy on Vercel
+- Mở `app/auth` là tìm thấy cả route, giao diện và nghiệp vụ auth.
+- `page.tsx` giữ metadata và ghép giao diện. Logic auth nằm trong `_module`.
+- Trong `_module`, import trực tiếp file cùng cấp. Các tính năng khác cần auth có thể import export công khai từ `@/app/auth/_module`; tránh import vòng qua `index.ts` trong nội bộ auth.
+- `lib` không import ngược từ `app`. HTTP nhận callback để auth tự cung cấp token và xử lý 401.
+- TanStack Query giữ trạng thái request và cache API. Zustand giữ phiên đăng nhập. Query keys nằm cạnh code auth, cấu hình cache chung nằm trong `lib/query`.
+- Auth hooks, store và authenticated HTTP client dùng phía client. Server Components có thể render form client; HTTP phía server cần thông tin xác thực riêng theo từng request.
+- Component giao diện dùng chung giữa nhiều tính năng có thể đặt trong `components`; chỉ tạo thư mục này khi cần.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Thêm tính năng mới
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ví dụ quản lý sản phẩm:
+
+```text
+app/products/
+  page.tsx
+  [id]/page.tsx
+  _module/
+    ProductList.tsx
+    ProductDetails.tsx
+    use-products.ts
+    product.service.ts
+    product.types.ts
+    product.keys.ts
+```
+
+Chỉ tạo file cần dùng. Không bắt buộc mỗi tính năng phải có store, HTTP client riêng hoặc đủ mọi lớp. Các service phía client cần token có thể dùng `authenticatedApiClient` được export từ auth.
+
+## Kiểm tra
+
+```bash
+npm run lint
+npx next typegen
+npx tsc --noEmit
+npm run build
+```
