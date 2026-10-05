@@ -39,9 +39,7 @@ export function useLoginMutation(options?: {
   });
 }
 
-/**
- * Hook quản lý mutation đăng ký tài khoản với TanStack Query.
- */
+
 export function useRegisterMutation(options?: {
   onSuccess?: (data: unknown) => void;
   onError?: (error: AppApiError) => void;

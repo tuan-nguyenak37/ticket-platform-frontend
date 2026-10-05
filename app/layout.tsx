@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "./providers";
-import { AmbientGlow } from "@/components/layout/AmbientGlow";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
+import { SiteShell } from "@/components/layout/SiteShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,10 +31,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col bg-slate-950 text-white font-sans relative selection:bg-violet-500/40 selection:text-white">
         <AppProviders>
-          <AmbientGlow />
-          <Navbar />
-          <main className="flex-1 relative z-10 flex flex-col">{children}</main>
-          <Footer />
+          <SiteShell>{children}</SiteShell>
         </AppProviders>
       </body>
     </html>
