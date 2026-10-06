@@ -16,3 +16,8 @@ body {
   background: #020617;
   color: #ffffff;
 }
+
+/* Hide scrollbar for horizontal scroll containers */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
