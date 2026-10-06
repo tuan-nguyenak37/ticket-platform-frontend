@@ -16,6 +16,8 @@ export function useEventDetail(eventId: string) {
     mutationFn: (status: 'published' | 'cancelled' | 'draft') =>
       updateEventStatus(eventId, status),
     onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['public', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'event'] });
       queryClient.setQueryData(['moderator', 'event', eventId], updated);
       queryClient.invalidateQueries({ queryKey: ['moderator', 'events'] });
       queryClient.invalidateQueries({ queryKey: ['moderator', 'dashboard'] });

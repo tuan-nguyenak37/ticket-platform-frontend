@@ -1,0 +1,14 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
+import { ArrowUpRight, CalendarDays, MapPin, Search } from 'lucide-react';
+import { searchPublicEvents } from '../../(homePage)/_lib/home.api';
+import { formatEventDate } from '../../(homePage)/_lib/home.utils';
+
+export function PublicEventSearch({ query }: { query: string }) {
+  const result = useQuery({ queryKey: ['public', 'events', 'search', query], queryFn: ({ signal }) => searchPublicEvents(query, signal), staleTime: 60_000, retry: 1 });
+  return <div style={{ fontFamily: '"Segoe UI", Arial, sans-serif' }} className="mx-auto w-full max-w-7xl px-4 py-10 md:px-8"><Link href="/" className="text-sm text-white/70 hover:text-white">← Trang chủ</Link><h1 className="mt-6 text-3xl font-semibold text-white">{query ? `Kết quả cho “${query}”` : 'Khám phá sự kiện'}</h1><p className="mt-3 text-sm text-white/80">Tìm những trải nghiệm sắp tới dành cho bạn.</p>
+    {result.isPending ? <p role="status" className="mt-10 text-white/80">Đang tìm sự kiện…</p> : result.isError ? <div role="alert" className="mt-10"><p className="text-white/80">Chưa thể tải danh sách sự kiện.</p><button onClick={() => void result.refetch()} className="mt-4 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 font-medium text-white focus-visible:outline-2 focus-visible:outline-violet-300">Thử lại</button></div> : <><p className="mt-8 text-sm text-white/70">{result.data.total} sự kiện phù hợp{result.data.total > 12 ? ' · Hiển thị 12 kết quả đầu tiên' : ''}</p><div className="mt-5 grid gap-6 md:grid-cols-2 lg:grid-cols-3">{result.data.items.map(event => <Link key={event.event_id} href={`/events/${encodeURIComponent(event.event_id)}`} className="group rounded-3xl border border-white/20 bg-gradient-to-r from-violet-950/50 to-fuchsia-950/30 p-6 transition-all duration-300 hover:border-violet-400/60 hover:shadow-xl hover:shadow-violet-500/25 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-300 motion-reduce:transition-none"><div className="flex items-start justify-between gap-4"><h2 className="text-xl font-semibold text-white">{event.name}</h2><ArrowUpRight size={18} className="shrink-0 text-fuchsia-200" aria-hidden="true" /></div>{event.description && <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/80">{event.description}</p>}<p className="mt-5 flex items-center gap-2 text-xs text-white/80"><CalendarDays size={15} aria-hidden="true" />{formatEventDate(event.startTime)}</p><p className="mt-2 flex items-center gap-2 text-xs text-white/80"><MapPin size={15} aria-hidden="true" />{event.venueName}</p></Link>)}</div>{!result.data.items.length && <div className="py-20 text-center"><Search size={36} className="mx-auto text-violet-300" aria-hidden="true" /><p className="mt-5 text-white/80">Chưa tìm thấy sự kiện phù hợp. Hãy thử một từ khóa khác.</p></div>}</>}
+  </div>;
+}

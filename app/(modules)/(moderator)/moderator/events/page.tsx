@@ -15,7 +15,7 @@ export default function ModeratorEventsPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  const { data, isLoading, refetch, isFetching } = useEvents({
+  const { data, isLoading, refetch, isFetching, error } = useEvents({
     q: query,
     status,
     page,
@@ -26,7 +26,7 @@ export default function ModeratorEventsPage() {
 
   const handleApprove = async (eventId: string) => {
     if (confirm('Xác nhận duyệt và xuất bản sự kiện này lên hệ thống?')) {
-      await updateStatusMutation.mutateAsync({
+      updateStatusMutation.mutate({
         eventId,
         status: 'published',
       });
@@ -35,7 +35,7 @@ export default function ModeratorEventsPage() {
 
   const handleReject = async (eventId: string) => {
     if (confirm('Xác nhận hủy sự kiện này?')) {
-      await updateStatusMutation.mutateAsync({
+      updateStatusMutation.mutate({
         eventId,
         status: 'cancelled',
       });
@@ -58,6 +58,7 @@ export default function ModeratorEventsPage() {
 
   return (
     <div className="space-y-6">
+      {(error || updateStatusMutation.error) && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{(updateStatusMutation.error || error)?.message}</div>}
       {/* 1. Header Section */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>

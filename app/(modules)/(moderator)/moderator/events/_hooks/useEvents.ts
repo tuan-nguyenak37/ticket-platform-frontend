@@ -20,6 +20,8 @@ export function useCreateEventMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['moderator', 'events'] });
       queryClient.invalidateQueries({ queryKey: ['moderator', 'dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'event'] });
     },
   });
 }
@@ -39,6 +41,8 @@ export function useUpdateEventStatus() {
       queryClient.invalidateQueries({ queryKey: ['moderator', 'events'] });
       queryClient.invalidateQueries({ queryKey: ['moderator', 'event'] });
       queryClient.invalidateQueries({ queryKey: ['moderator', 'dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'event'] });
     },
   });
 }
@@ -51,6 +55,8 @@ export function useDeleteEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['moderator', 'events'] });
       queryClient.invalidateQueries({ queryKey: ['moderator', 'dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'events'] });
+      queryClient.invalidateQueries({ queryKey: ['public', 'event'] });
     },
   });
 }

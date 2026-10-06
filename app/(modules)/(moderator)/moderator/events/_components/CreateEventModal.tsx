@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Upload,
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react';
+import { useEventCategories } from '@/lib/events/useEventCategories';
 import { useCreateEventMutation } from '../_hooks/useEvents';
 
 interface CreateEventModalProps {
@@ -22,24 +23,18 @@ interface CreateEventModalProps {
   onSuccess?: () => void;
 }
 
-const CATEGORIES = [
-  { id: 'pm_evt_cat_01ffae0869c1', name: 'Concert & Âm nhạc' },
-  { id: 'pm_evt_cat_02ffae0869c2', name: 'Hội thảo & Workshop' },
-  { id: 'pm_evt_cat_03ffae0869c3', name: 'Thể thao & Giải đấu' },
-  { id: 'pm_evt_cat_04ffae0869c4', name: 'Sân khấu & Nghệ thuật' },
-  { id: 'pm_evt_cat_05ffae0869c5', name: 'Lễ hội & Triển lãm' },
-];
-
 export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModalProps) {
   const createMutation = useCreateEventMutation();
 
+  const categoriesQuery = useEventCategories(isOpen);
+  const categories = categoriesQuery.data ?? [];
+
   // Form states
   const [name, setName] = useState('');
-  const [shortDescription, setShortDescription] = useState('');
   const [description, setDescription] = useState('');
   const [venueName, setVenueName] = useState('');
   const [address, setAddress] = useState('');
-  const [categoryId, setCategoryId] = useState(CATEGORIES[0].id);
+  const [categoryId, setCategoryId] = useState('');
 
   // Default dates: tomorrow 18:00 to 22:00
   const tomorrow = new Date();
@@ -52,43 +47,35 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
   const [endTime, setEndTime] = useState('22:00');
 
   // File uploads
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const thumbInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => () => {
+    if (bannerPreview) URL.revokeObjectURL(bannerPreview);
+  }, [bannerPreview]);
 
   if (!isOpen) return null;
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setThumbnailFile(file);
-      const url = URL.createObjectURL(file);
-      setThumbnailPreview(url);
-    }
-  };
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+        setErrorMsg('Vui lòng chọn ảnh PNG, JPG, WEBP hoặc GIF.');
+        e.target.value = '';
+        return;
+      }
+      setErrorMsg(null);
       setBannerFile(file);
       const url = URL.createObjectURL(file);
       setBannerPreview(url);
     }
   };
 
-  const removeThumbnail = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setThumbnailFile(null);
-    if (thumbnailPreview) URL.revokeObjectURL(thumbnailPreview);
-    setThumbnailPreview(null);
-    if (thumbInputRef.current) thumbInputRef.current.value = '';
-  };
 
   const removeBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -128,16 +115,25 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
       return;
     }
 
-    // Kiểm tra ảnh đối với Backend API
-    if (!thumbnailFile || !bannerFile) {
-      setErrorMsg('Backend yêu cầu bắt buộc phải tải lên cả ảnh Thumbnail và Banner.');
+    if (targetStatus === 'published' && startDateTime.getTime() <= Date.now()) {
+      setErrorMsg('Sự kiện xuất bản phải có thời gian bắt đầu trong tương lai.');
+      return;
+    }
+
+    // Banner là ảnh bắt buộc khi tạo sự kiện.
+    if (!bannerFile) {
+      setErrorMsg('Vui lòng tải lên ảnh Banner.');
+      return;
+    }
+
+    if (!categories.some(category => category.category_id === categoryId)) {
+      setErrorMsg('Vui lòng chọn một danh mục đang hoạt động.');
       return;
     }
 
     try {
       const formData = new FormData();
       formData.append('name', name.trim());
-      if (shortDescription.trim()) formData.append('shortDescription', shortDescription.trim());
       if (description.trim()) formData.append('description', description.trim());
       formData.append('venueName', venueName.trim());
       formData.append('address', address.trim());
@@ -145,7 +141,6 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
       formData.append('status', targetStatus);
       formData.append('startTime', startDateTime.toISOString());
       formData.append('endTime', endDateTime.toISOString());
-      formData.append('thumbnail', thumbnailFile);
       formData.append('banner', bannerFile);
 
       await createMutation.mutateAsync(formData);
@@ -181,7 +176,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
             <div>
               <h2 className="text-lg font-bold tracking-tight">Tạo sự kiện mới</h2>
               <p className="text-xs text-slate-500">
-                Thêm sự kiện và phát hành trực tiếp qua API quản trị TicketVerse.
+                Thêm thông tin và ảnh bìa cho sự kiện của bạn.
               </p>
             </div>
           </div>
@@ -204,6 +199,9 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
             </div>
           )}
 
+          {categoriesQuery.isError && <div role="alert" className="text-sm text-rose-600">Không tải được danh mục. <button type="button" onClick={() => void categoriesQuery.refetch()} className="underline">Thử lại</button></div>}
+          {categoriesQuery.isSuccess && !categories.length && <p role="status" className="text-sm text-amber-700">Chưa có danh mục đang hoạt động.</p>}
+
           {/* Section 1: Thông tin cơ bản */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -219,6 +217,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                 <input
                   type="text"
                   placeholder="Ví dụ: Lễ hội Âm nhạc Mùa Hè 2026..."
+                  maxLength={255}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/10"
@@ -233,12 +232,14 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                   <div className="relative">
                     <Tag className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
                     <select
+                      disabled={categoriesQuery.isPending || categoriesQuery.isError}
                       value={categoryId}
                       onChange={(e) => setCategoryId(e.target.value)}
                       className="w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-9 pr-3.5 py-2.5 text-xs text-slate-800 focus:border-violet-500 focus:bg-white focus:outline-none cursor-pointer"
                     >
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
+                      <option value="">{categoriesQuery.isPending ? 'Đang tải danh mục…' : 'Chọn danh mục'}</option>
+                      {categories.map((cat) => (
+                        <option key={cat.category_id} value={cat.category_id}>
                           {cat.name}
                         </option>
                       ))}
@@ -246,18 +247,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Mô tả ngắn gọn
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Điểm nhấn chính của sự kiện..."
-                    value={shortDescription}
-                    onChange={(e) => setShortDescription(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/10"
-                  />
-                </div>
+
               </div>
 
               <div>
@@ -267,6 +257,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                 <textarea
                   rows={3}
                   placeholder="Giới thiệu chương trình, dàn nghệ sĩ, lưu ý cho khán giả..."
+                  maxLength={20000}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/10"
@@ -290,6 +281,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                 <input
                   type="text"
                   placeholder="Ví dụ: Trung tâm Hội nghị SECC"
+                  maxLength={255}
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/10"
@@ -303,6 +295,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                 <input
                   type="text"
                   placeholder="Số nhà, tên đường, quận/huyện, TP..."
+                  maxLength={500}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/10"
@@ -357,56 +350,14 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
             </div>
           </div>
 
-          {/* Section 3: Tải ảnh Thumbnail & Banner */}
+          {/* Section 3: Tải ảnh Banner */}
           <div className="space-y-4 pt-2 border-t border-slate-100">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
               <ImageIcon className="size-3.5 text-violet-600" />
               3. Hình ảnh sự kiện (Bắt buộc)
             </h3>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Thumbnail upload */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Ảnh đại diện (Thumbnail - Tỉ lệ 1:1) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="file"
-                  ref={thumbInputRef}
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={handleThumbnailChange}
-                  className="hidden"
-                />
-                <div
-                  onClick={() => thumbInputRef.current?.click()}
-                  className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-4 text-center hover:border-violet-400 hover:bg-violet-50/20 cursor-pointer transition-all aspect-video sm:aspect-square overflow-hidden"
-                >
-                  {thumbnailPreview ? (
-                    <div className="relative size-full">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={thumbnailPreview}
-                        alt="Thumbnail preview"
-                        className="size-full object-cover rounded-xl"
-                      />
-                      <button
-                        type="button"
-                        onClick={removeThumbnail}
-                        className="absolute top-2 right-2 rounded-lg bg-slate-900/70 p-1 text-white hover:bg-rose-600 transition-colors"
-                      >
-                        <X className="size-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="size-6 text-slate-400 mb-1.5" />
-                      <p className="text-xs font-medium text-slate-700">Tải ảnh Thumbnail</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">PNG, JPG, WEBP tối đa 5MB</p>
-                    </>
-                  )}
-                </div>
-              </div>
-
+            <div className="grid gap-4">
               {/* Banner upload */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -415,7 +366,7 @@ export function CreateEventModal({ isOpen, onClose, onSuccess }: CreateEventModa
                 <input
                   type="file"
                   ref={bannerInputRef}
-                  accept="image/png, image/jpeg, image/webp"
+                  accept="image/png, image/jpeg, image/webp, image/gif"
                   onChange={handleBannerChange}
                   className="hidden"
                 />

@@ -2,13 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
   XCircle,
   ArrowLeft,
   AlertTriangle,
-  RotateCcw,
   Sparkles,
 } from 'lucide-react';
 import type { EventItem } from '../../_lib/events.types';
@@ -20,7 +18,6 @@ interface EventActionsProps {
 }
 
 export function EventActions({ event, onUpdateStatus, isUpdating }: EventActionsProps) {
-  const router = useRouter();
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleAction = async (status: 'published' | 'cancelled' | 'draft', label: string) => {
@@ -29,8 +26,8 @@ export function EventActions({ event, onUpdateStatus, isUpdating }: EventActions
       setFeedback(null);
       await onUpdateStatus(status);
       setFeedback(`Đã cập nhật trạng thái sự kiện thành: ${label}`);
-    } catch {
-      setFeedback('Có lỗi xảy ra khi cập nhật trạng thái sự kiện.');
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật trạng thái sự kiện.');
     }
   };
 
@@ -74,7 +71,7 @@ export function EventActions({ event, onUpdateStatus, isUpdating }: EventActions
           )}
 
           {/* Hủy sự kiện */}
-          {!isCancelled && (
+          {isPublished && event.phase !== 'ended' && (
             <button
               type="button"
               disabled={isUpdating}
@@ -86,18 +83,7 @@ export function EventActions({ event, onUpdateStatus, isUpdating }: EventActions
             </button>
           )}
 
-          {/* Hoàn tác về Draft */}
-          {isCancelled && (
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => handleAction('draft', 'Khôi phục về Chờ duyệt')}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all disabled:opacity-50"
-            >
-              <RotateCcw className="size-4" />
-              <span>Khôi phục về Nháp (Draft)</span>
-            </button>
-          )}
+
         </div>
       </div>
 
@@ -110,14 +96,14 @@ export function EventActions({ event, onUpdateStatus, isUpdating }: EventActions
       {isPublished && (
         <div className="flex items-center gap-2 rounded-xl bg-emerald-50/70 border border-emerald-100 p-3 text-xs text-emerald-800">
           <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
-          <span>Sự kiện này đang được xuất bản công khai và cho phép người dùng đặt vé.</span>
+          <span>Sự kiện này đang được xuất bản công khai.</span>
         </div>
       )}
 
       {isCancelled && (
         <div className="flex items-center gap-2 rounded-xl bg-rose-50/70 border border-rose-100 p-3 text-xs text-rose-800">
           <AlertTriangle className="size-4 text-rose-600 shrink-0" />
-          <span>Sự kiện này đã bị hủy bỏ. Người dùng không thể tìm thấy hoặc mua vé cho sự kiện này.</span>
+          <span>Sự kiện này đã bị hủy và không còn xuất hiện trong danh sách tìm kiếm.</span>
         </div>
       )}
     </div>

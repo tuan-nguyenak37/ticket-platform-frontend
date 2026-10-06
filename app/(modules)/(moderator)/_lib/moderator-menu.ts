@@ -1,8 +1,9 @@
-import { LayoutDashboard, CalendarDays, ReceiptText, Tickets, ScanLine, Users, Flag, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, ReceiptText, Tickets, ScanLine, Users, Flag, ShieldCheck, Pin } from 'lucide-react';
 
 export const moderatorMenu = [
   { label: 'Tổng quan', href: '/moderator/dashboard', icon: LayoutDashboard },
   { label: 'Sự kiện', href: '/moderator/events', icon: CalendarDays, badge: '12' },
+  { label: 'Sự kiện ghim', href: '/moderator/pinned-events', icon: Pin },
   { label: 'Xét duyệt', href: '/moderator/approvals', icon: ShieldCheck, badge: '12' },
   { label: 'Đơn hàng', href: '/moderator/orders', icon: ReceiptText },
   { label: 'Vé', href: '/moderator/tickets', icon: Tickets },

@@ -5,14 +5,12 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Building2,
   FileText,
   Tag,
-  ShieldCheck,
-  Ticket,
 } from 'lucide-react';
 import type { EventItem } from '../../_lib/events.types';
-import { getImageUrl } from '../../_lib/events.api';
+import { ManagedEventBanner } from '../../_components/ManagedEventBanner';
+import { useEventCategories } from '@/lib/events/useEventCategories';
 import { EventStatusBadge } from '../../_components/EventStatusBadge';
 
 export function EventDetail({ event }: { event: EventItem }) {
@@ -29,41 +27,28 @@ export function EventDetail({ event }: { event: EventItem }) {
     }
   };
 
-  const bannerSrc = getImageUrl(event.bannerUrl);
-  const thumbSrc = getImageUrl(event.thumbnailUrl);
+  const { data: categories } = useEventCategories();
+  const categoryName = categories?.find(category => category.category_id === event.categoryId)?.name;
 
   return (
     <div className="space-y-6">
       {/* 1. Main Overview Header Card */}
       <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-sm overflow-hidden">
-        {bannerSrc && (
+        {event.bannerUrl && (
           <div className="w-full h-44 sm:h-64 rounded-2xl overflow-hidden mb-6 border border-slate-100 bg-slate-100 shadow-inner">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={bannerSrc}
-              alt={event.name}
-              className="size-full object-cover"
-            />
+            <ManagedEventBanner event={event} className="size-full object-contain" />
           </div>
         )}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2 max-w-3xl">
             <div className="flex items-start gap-4">
-              {thumbSrc && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={thumbSrc}
-                  alt={event.name}
-                  className="size-16 sm:size-20 rounded-2xl object-cover border border-slate-200 shadow-md shrink-0"
-                />
-              )}
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2">
               <EventStatusBadge status={event.status} />
-              {event.categoryName && (
+              {categoryName && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-medium text-violet-700">
                   <Tag className="size-3" />
-                  {event.categoryName}
+                  {categoryName}
                 </span>
               )}
               {event.phase && (
@@ -76,25 +61,11 @@ export function EventDetail({ event }: { event: EventItem }) {
               {event.name}
             </h1>
             <p className="text-xs font-mono text-slate-400">ID: {event.event_id}</p>
-            {event.shortDescription && (
-              <p className="text-sm text-slate-600 leading-relaxed pt-1">
-                {event.shortDescription}
-              </p>
-            )}
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 min-w-[200px] text-right">
-            <p className="text-[11px] text-slate-400">Dự kiến sức chứa</p>
-            <div className="mt-1 flex items-center justify-end gap-1.5 text-slate-800">
-              <Ticket className="size-4 text-violet-600" />
-              <span className="text-xl font-bold tracking-tight">
-                {event.ticketsCount ? event.ticketsCount.toLocaleString('vi-VN') : '1.000+'}
-              </span>
-              <span className="text-xs text-slate-500 font-normal">vé</span>
-            </div>
-          </div>
+
         </div>
       </div>
 
@@ -151,27 +122,6 @@ export function EventDetail({ event }: { event: EventItem }) {
 
         {/* Right Column (1 col) */}
         <div className="space-y-6">
-          {/* Organizer Info */}
-          <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-              <Building2 className="size-4 text-violet-600" />
-              Đơn vị tổ chức
-            </h2>
-            <div className="flex items-center gap-3">
-              <div className="size-11 rounded-2xl bg-gradient-to-tr from-violet-600 to-fuchsia-600 flex items-center justify-center font-bold text-white text-sm">
-                {event.organizerName ? event.organizerName[0].toUpperCase() : 'O'}
-              </div>
-              <div>
-                <p className="font-semibold text-slate-800 text-xs">
-                  {event.organizerName || 'Nhà tổ chức đối tác'}
-                </p>
-                <p className="text-[10px] text-emerald-600 flex items-center gap-1 mt-0.5 font-medium">
-                  <ShieldCheck className="size-3" /> Đã xác minh danh tính
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Moderation Metadata */}
           <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">
@@ -180,7 +130,7 @@ export function EventDetail({ event }: { event: EventItem }) {
             <div className="space-y-3 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-400">Mã danh mục</span>
-                <span className="font-mono text-slate-600">{event.categoryId || 'pm_evt_cat_music'}</span>
+                <span className="font-mono text-slate-600">{event.categoryId || '—'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-400">Ngày tạo</span>

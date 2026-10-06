@@ -1,3 +1,5 @@
+import type { PublicEvent, EventPhase } from '@/lib/events/events.types';
+
 export interface ModerationEvent {
   id: string;
   name: string;
@@ -20,31 +22,15 @@ export interface PreviewRecord {
 
 export type EventStatus = 'draft' | 'published' | 'cancelled' | 'Chờ duyệt' | 'Đã duyệt' | 'Từ chối';
 
-export interface EventItem {
-  event_id: string;
-  name: string;
-  shortDescription?: string;
-  description?: string;
-  thumbnailUrl?: string | null;
-  bannerUrl?: string | null;
-  startTime: string;
-  endTime: string;
-  venueName: string;
-  address: string;
-  categoryId?: string;
-  categoryName?: string;
-  status: 'draft' | 'published' | 'cancelled';
-  phase?: string;
-  createdAt: string;
-  updatedAt: string;
-  ticketsCount?: number;
-  organizerName?: string;
+export interface EventItem extends PublicEvent {
+  createdBy?: string | null;
 }
 
 export interface EventFilterParams {
   q?: string;
   status?: string;
-  category?: string;
+  categoryId?: string;
+  phase?: EventPhase;
   page?: number;
   limit?: number;
 }
@@ -58,7 +44,6 @@ export interface EventListResponse {
 
 export interface CreateEventInput {
   name: string;
-  shortDescription?: string;
   description?: string;
   venueName: string;
   address: string;
@@ -66,7 +51,6 @@ export interface CreateEventInput {
   status: 'draft' | 'published';
   startTime: string;
   endTime: string;
-  thumbnail: File | null;
   banner: File | null;
 }
 

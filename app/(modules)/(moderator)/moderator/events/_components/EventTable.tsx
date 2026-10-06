@@ -4,7 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Calendar, MapPin, ChevronRight, CheckCircle2, XCircle, Eye, Sparkles } from 'lucide-react';
 import type { EventItem } from '../_lib/events.types';
-import { getImageUrl } from '../_lib/events.api';
+import { ManagedEventBanner } from './ManagedEventBanner';
+import { useEventCategories } from '@/lib/events/useEventCategories';
 import { EventStatusBadge } from './EventStatusBadge';
 
 interface EventTableProps {
@@ -28,6 +29,7 @@ export function EventTable({
   limit = 10,
   onPageChange,
 }: EventTableProps) {
+  const { data: categories } = useEventCategories();
   const totalPages = Math.ceil(total / limit) || 1;
 
   const formatDate = (isoString?: string) => {
@@ -93,6 +95,7 @@ export function EventTable({
               </tr>
             ) : (
               events.map((event) => {
+                const categoryName = categories?.find(category => category.category_id === event.categoryId)?.name;
                 const isDraft = event.status === 'draft';
                 const isPublished = event.status === 'published';
 
@@ -104,18 +107,7 @@ export function EventTable({
                     {/* 1. Tên sự kiện & mã */}
                     <td className="px-5 py-4 sm:px-6">
                       <div className="flex items-start gap-3">
-                        {event.thumbnailUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={getImageUrl(event.thumbnailUrl) || ''}
-                            alt={event.name}
-                            className="size-10 shrink-0 rounded-xl object-cover border border-slate-100 shadow-sm"
-                          />
-                        ) : (
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-700 font-bold text-sm">
-                            {event.name ? event.name[0].toUpperCase() : 'E'}
-                          </div>
-                        )}
+                        <ManagedEventBanner event={event} className="size-10 shrink-0 rounded-xl object-cover border border-slate-100 shadow-sm" />
                         <div>
                           <Link
                             href={`/moderator/events/${event.event_id}`}
@@ -125,11 +117,11 @@ export function EventTable({
                           </Link>
                           <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400 font-mono">
                             <span>ID: {event.event_id}</span>
-                            {event.categoryName && (
+                            {categoryName && (
                               <>
                                 <span>•</span>
                                 <span className="font-sans font-medium text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded">
-                                  {event.categoryName}
+                                  {categoryName}
                                 </span>
                               </>
                             )}
@@ -180,7 +172,7 @@ export function EventTable({
                           </button>
                         )}
 
-                        {isPublished && onReject && (
+                        {isPublished && event.phase !== 'ended' && onReject && (
                           <button
                             type="button"
                             onClick={() => onReject(event.event_id)}
