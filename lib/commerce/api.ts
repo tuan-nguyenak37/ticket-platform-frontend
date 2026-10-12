@@ -30,7 +30,7 @@ export async function listOrders(filters: OrderFilters, manage: boolean, signal?
 export async function getOrder(id: string, manage: boolean, signal?: AbortSignal) {
   return unwrap((await apiClient.get<ApiResponse<OrderDetail>>(`/orders/${manage ? 'manage' : 'me'}/${idPath(id)}`, { signal })).data);
 }
-export type OrderAction = { path: 'cancel' } | { path: 'dispute'; body: { reason: string; evidence: string } } | { path: 'dispute/reply'; body: { response: string } } | { path: 'dispute/resolve'; body: { decision: 'accept' | 'reject'; note: string } } | { path: 'refund/mock' | 'payout/mock' };
+export type OrderAction = { path: 'cancel' } | { path: 'dispute'; body: { reason: string; evidence: string } } | { path: 'dispute/reply'; body: { response: string } } | { path: 'dispute/resolve'; body: { decision: 'accept' | 'reject'; note: string } };
 export async function actOnOrder(id: string, action: OrderAction, manage: boolean) {
   return unwrap((await apiClient.post<ApiResponse<OrderDetail>>(`/orders/${manage ? 'manage' : 'me'}/${idPath(id)}/${action.path}`, 'body' in action ? action.body : undefined)).data);
 }

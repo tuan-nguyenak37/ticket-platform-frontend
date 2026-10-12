@@ -65,9 +65,9 @@ test('API uses contract payloads, protected files and surfaces backend failures'
   assert.equal(calls[0][2].headers['Idempotency-Key'], 'checkout-key');
   await api.actOnOrder('order', { path: 'dispute/reply', body: { response: 'Evidence' } }, false);
   assert.equal(calls[1][0], '/orders/me/order/dispute/reply');
-  await api.actOnOrder('order', { path: 'refund/mock' }, true);
-  assert.equal(calls[2][0], '/orders/manage/order/refund/mock');
-  assert.equal(calls[2][1], undefined);
+  await api.actOnOrder('order', { path: 'dispute/resolve', body: { decision: 'reject', note: 'Reviewed' } }, true);
+  assert.equal(calls[2][0], '/orders/manage/order/dispute/resolve');
+  assert.equal(calls[2][1].decision, 'reject');
   await api.downloadOrder('order'); assert.equal(calls[3][1].responseType, 'blob');
   for (const statusCode of [401, 403, 409, 500]) { failure = Object.assign(new Error('Backend error'), { statusCode }); await assert.rejects(api.createOrder('ticket', 'checkout-key'), error => error === failure); }
 });
@@ -95,7 +95,7 @@ test('refund_pending rendering explains the losing purchase and omits ticket dow
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './PaymentHistory': { PaymentHistory: () => null },
+    './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
   assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
@@ -114,7 +114,7 @@ test('dispute evidence is displayed as escaped text and seller response form fol
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './PaymentHistory': { PaymentHistory: () => null },
+    './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);

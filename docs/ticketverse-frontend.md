@@ -106,5 +106,15 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - Lịch sử từ GET /orders/me/:id/payments; biên nhận từ GET /orders/me/:id/receipt sau capture, kể cả sau hoàn tiền. Biên nhận thử nghiệm, không phải hóa đơn thuế. Không export CSV.
 - Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true ở frontend; backend development/test phải có PAYMENT_MOCK_ENABLED=true, Redis và schema payment-card-demo.sql. Không thay backend hoặc chạy migration trong đợt này.
 - 429 đọc Retry-After và khóa thao tác trong thời gian chờ. Poll đơn tối đa 60 lần/5 giây, dừng khi lỗi, hết hạn, kết thúc hoặc rời trang.
-- Phạm vi chỉ người mua. Tài khoản nhận tiền và API quản trị thanh toán mới chưa tích hợp; các nút quản trị hoàn tiền/chi trả cũ vẫn cần cập nhật key/reason ở đợt tiếp theo.
+- Phần người bán và quản trị đã được bổ sung theo mục bên dưới.
 - Không chạy test hoặc giao dịch runtime theo yêu cầu. Đã cập nhật test hợp đồng API để thay test endpoint cũ nhưng chưa chạy.
+
+## Thanh toán người bán và quản trị (13/10/2026)
+
+- Hồ sơ cá nhân đọc/lưu tài khoản qua GET/PUT /users/me/payout-account, ba ngân hàng demo và số 9900 dài 10–16 chữ số. Chỉ hiển thị số đầy đủ cho chủ tài khoản.
+- Chi tiết đơn của người bán/quản trị hiển thị feeBasisPoints, platformFee, sellerNetAmount đã lưu; không tự tính lại phí cho đơn cũ.
+- `/moderator/payments`: GET /orders/manage/payments, lọc orderId/status/from/to và phân trang. Mốc giờ thiết bị được chuyển ISO khi gửi API.
+- Lịch sử chi tiết quản trị dùng GET /orders/manage/:id/payments; người mua/bán dùng /me/:id/payments. Chỉ hiển thị card/bank có trong response; không suy diễn thông tin bị ẩn. Giao dịch legacy ghi đúng thời điểm ghi nhận, không bịa ngày chuyển tiền.
+- Hoàn tiền/chi trả dùng API mới với reason và Idempotency-Key. Key/lý do giữ trong sessionStorage theo actor/order/kind để gửi lại sau mất phản hồi hoặc reload; số tiền lấy từ đơn. Không cho quản trị tự xử lý đơn mình tham gia. Backend quyết định điều kiện tài khoản nhận tiền, trạng thái người bán/sự kiện và hạn tranh chấp.
+- Các thao tác ghi chống gửi lặp, xử lý 429 theo Retry-After, làm mới đơn/lịch sử sau xử lý. Cờ demo tiếp tục bắt buộc, không sửa cấu hình backend.
+- Không chạy test hay giao dịch runtime theo yêu cầu; cần kiểm chứng tích hợp với schema/Redis/backend đã cập nhật.

@@ -7,6 +7,7 @@ import { dateTime, money, orderLabels, orderPermissions, payoutLabels } from '@/
 import { useAuthStore } from '@/lib/store/auth.store';
 import { Failure } from './shared';
 import { DisputeAttachments } from './DisputeAttachments';
+import { TransferForm } from './TransferForm';
 import { PaymentHistory } from './PaymentHistory';
 
 const demoEnabled = process.env.NEXT_PUBLIC_PAYMENT_MOCK_ENABLED === 'true';
@@ -70,11 +71,11 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
         <div className="flex flex-wrap gap-3">{permissions.download && <button className="tv-button tv-primary" disabled={disabled} onClick={() => void download()}>Tải vé qua kết nối xác thực</button>}{permissions.cancel && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'cancel' })}>Hủy đơn chờ thanh toán</button>}</div>
       </section>
       {permissions.pay && <Link className="tv-button tv-primary" href={`/dashboard/orders/${encodeURIComponent(id)}/checkout`}>Tiếp tục thanh toán</Link>}
-      {!manage && actor === order.buyerId && <PaymentHistory id={id} />}
+      <PaymentHistory id={id} manage={manage} />
+      {(manage || actor === order.sellerId) && <section className="tv-panel space-y-3"><h2 className="font-bold">Doanh thu bán vé</h2><dl className="grid gap-3 text-sm sm:grid-cols-3"><div><dt>Giá bán</dt><dd>{money(order.amount)}</dd></div><div><dt>Phí nền tảng ({order.feeBasisPoints / 100}%)</dt><dd>{money(order.platformFee)}</dd></div><div><dt>Người bán thực nhận</dt><dd className="font-bold">{money(order.sellerNetAmount)}</dd></div></dl>{!manage && <Link href="/dashboard/profile" className="inline-block text-sm underline">Thiết lập tài khoản nhận tiền</Link>}</section>}
       {!manage && actor === order.buyerId && ['paid', 'delivered', 'completed'].includes(order.status) && <section role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6"><h2 className="text-xl font-semibold text-emerald-300">Thanh toán đã được xác nhận</h2><p className="mt-2 text-sm">Vé của bạn đã sẵn sàng. Bạn có thể tải vé trong đơn hàng này.</p></section>}
-      {demoEnabled && (permissions.refund || permissions.payout) && <section className="tv-panel space-y-4"><h2 className="font-bold">Xử lý giao dịch thử nghiệm</h2><div className="flex flex-wrap gap-3">
-        {permissions.refund && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'refund/mock' })}>Xác nhận hoàn tiền giả lập</button>}{permissions.payout && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'payout/mock' })}>Xác nhận chi trả giả lập</button>}
-      </div></section>}
+      {demoEnabled && permissions.refund && <TransferForm key={`${id}:refund`} id={id} kind="refund" amount={order.amount} disabled={disabled} />}
+      {demoEnabled && permissions.payout && <TransferForm key={`${id}:payout`} id={id} kind="payout" amount={order.sellerNetAmount} disabled={disabled} />}
       {!demoEnabled && permissions.pay && <p className="tv-panel">Thanh toán hiện chưa khả dụng. Vui lòng quay lại sau.</p>}
       {['cancelled', 'expired'].includes(order.status) && !manage && actor === order.buyerId && <p className="tv-panel">Lần mua này đã kết thúc. <Link className="underline" href="/tickets">Chọn vé và tạo lần mua mới</Link> để dùng mã giao dịch mới.</p>}
       {order.dispute && <section className="tv-panel space-y-4"><h2 className="font-bold">Tranh chấp · {({ open: 'Đang mở', accepted: 'Được chấp nhận', rejected: 'Bị bác bỏ' })[order.dispute.status]}</h2><p className="whitespace-pre-wrap break-words">Lý do: {order.dispute.reason}</p><p className="whitespace-pre-wrap break-words">Bằng chứng: {order.dispute.evidence}</p><p className="whitespace-pre-wrap break-words">Phản hồi người bán: {order.dispute.sellerResponse || 'Chưa phản hồi'}</p>{order.dispute.resolution && <p className="whitespace-pre-wrap break-words">Quyết định: {order.dispute.resolution} · {dateTime(order.dispute.resolvedAt)}</p>}<DisputeAttachments key={id} orderId={id} attachments={order.dispute.attachments ?? []} /></section>}
