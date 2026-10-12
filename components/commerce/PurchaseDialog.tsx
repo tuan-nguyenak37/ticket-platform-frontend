@@ -1,0 +1,20 @@
+'use client';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { ArrowRight, LoaderCircle, MapPin, Ticket as TicketIcon, X } from 'lucide-react';
+import type { Ticket } from '@/lib/commerce/types';
+import { dateTime, money } from '@/lib/commerce/rules';
+
+export function PurchaseDialog({ ticket, busy, onClose, onConfirm, children }: { ticket: Ticket; busy: boolean; onClose: () => void; onConfirm: () => void; children?: ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null); const heading = useId();
+  useEffect(() => {
+    const element = dialog.current;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    element?.showModal(); document.body.style.overflow = 'hidden';
+    return () => { element?.close(); document.body.style.overflow = overflow; previous?.focus(); };
+  }, []);
+  return <dialog ref={dialog} aria-labelledby={heading} aria-busy={busy} onCancel={event => { event.preventDefault(); if (!busy) onClose(); }} onClick={event => { if (!busy && event.target === event.currentTarget) { const rect = event.currentTarget.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose(); } }} className="purchase-dialog fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-[28px] border border-white/15 bg-[#100e20] p-0 text-white shadow-2xl shadow-black/60 backdrop:bg-slate-950/75 backdrop:backdrop-blur-sm">
+    <div className="relative overflow-hidden bg-gradient-to-br from-violet-500/20 via-fuchsia-500/5 to-transparent px-6 pb-5 pt-7 sm:px-8"><button type="button" autoFocus aria-label="Đóng xác nhận mua vé" disabled={busy} onClick={onClose} className="absolute right-4 top-4 rounded-full p-2 text-white/50 transition hover:bg-white/10 hover:text-white disabled:opacity-40"><X size={20} /></button><span className="mb-5 flex size-12 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-500/20 text-violet-200"><TicketIcon size={25} /></span><h2 id={heading} className="text-2xl font-semibold tracking-tight">Xác nhận mua vé</h2><p className="mt-2 text-sm text-white/50">Kiểm tra vé của bạn trước khi thanh toán.</p></div>
+    <div className="space-y-5 px-6 pb-7 sm:px-8"><section className="rounded-2xl border border-white/10 bg-white/[.035] p-4"><h3 className="break-words text-lg font-semibold leading-snug">{ticket.event.name}</h3><p className="mt-2 text-xs text-white/50">{dateTime(ticket.event.startTime)}</p><p className="mt-2 flex items-start gap-2 text-sm text-white/60"><MapPin size={15} className="mt-0.5 shrink-0" />{ticket.event.venueName}</p><dl className="mt-4 grid grid-cols-3 gap-3 border-t border-dashed border-white/15 pt-4 text-sm"><div><dt className="text-xs text-white/40">Hạng vé</dt><dd className="mt-1 break-words font-medium">{ticket.ticketTier}</dd></div><div><dt className="text-xs text-white/40">Ghế</dt><dd className="mt-1 break-words font-medium">{ticket.seatInfo || 'Không ghi ghế'}</dd></div><div><dt className="text-xs text-white/40">Số lượng</dt><dd className="mt-1 font-medium">01 vé</dd></div></dl></section><div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm text-white/60">Tổng thanh toán</span><strong className="text-2xl tracking-tight">{money(ticket.price)}</strong></div>{children}<button type="button" disabled={busy} onClick={onConfirm} className="flex w-full items-center justify-center gap-3 rounded-2xl bg-violet-600 px-4 py-3.5 font-semibold shadow-lg shadow-violet-900/30 transition hover:bg-violet-500 disabled:opacity-50">{busy ? <><LoaderCircle size={18} className="animate-spin" />Đang tạo đơn…</> : <>Xác nhận mua vé<ArrowRight size={18} /></>}</button><button type="button" disabled={busy} onClick={onClose} className="block w-full py-1 text-sm text-white/50 transition hover:text-white disabled:opacity-40">Chọn vé khác</button></div>
+  </dialog>;
+}

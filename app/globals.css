@@ -32,3 +32,14 @@ body {
 .commerce button:disabled { opacity: .45; cursor: not-allowed; }
 .commerce :is(button, a, input, select, textarea):focus-visible { outline: 2px solid #a78bfa; outline-offset: 3px; }
 .commerce label { font-size: .875rem; }
+
+.purchase-dialog button { cursor: pointer; }
+.purchase-dialog button:disabled { cursor: wait; }
+.purchase-dialog button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) {
+  .purchase-dialog[open] { animation: purchase-dialog-enter .18s ease-out; }
+  @keyframes purchase-dialog-enter {
+    from { opacity: 0; transform: translateY(12px) scale(.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+}
