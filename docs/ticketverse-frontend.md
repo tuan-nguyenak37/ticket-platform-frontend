@@ -105,7 +105,7 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - Hủy lần thanh toán không hủy đơn. Failed/cancelled có thể thử lại trên cùng đơn còn hạn; không gia hạn. Refund_pending không cấp file. Mọi kết quả lấy từ response API, không suy luận HTTP 200 là thanh toán thành công.
 - Lịch sử từ GET /orders/me/:id/payments; biên nhận từ GET /orders/me/:id/receipt sau capture, kể cả sau hoàn tiền. Biên nhận thử nghiệm, không phải hóa đơn thuế. Không export CSV.
 - Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true ở frontend; backend development/test phải có PAYMENT_MOCK_ENABLED=true, Redis và schema payment-card-demo.sql. Không thay backend hoặc chạy migration trong đợt này.
-- 429 đọc Retry-After và khóa thao tác trong thời gian chờ. Poll đơn tối đa 60 lần/5 giây, dừng khi lỗi, hết hạn, kết thúc hoặc rời trang.
+- 429 đọc Retry-After và khóa thao tác trong thời gian chờ. Checkout và chi tiết đơn không polling, không tự refetch khi focus/reconnect. Đọc lại khi mở trang, người dùng làm mới hoặc thực hiện thao tác; bộ đếm thời gian chỉ chạy tại trình duyệt.
 - Phần người bán và quản trị đã được bổ sung theo mục bên dưới.
 - Không chạy test hoặc giao dịch runtime theo yêu cầu. Đã cập nhật test hợp đồng API để thay test endpoint cũ nhưng chưa chạy.
 

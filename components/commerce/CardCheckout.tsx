@@ -14,7 +14,7 @@ export function CardCheckout({ order, busy, onPay }: { order: OrderDetail; busy:
     const form = event.currentTarget;
     const data = new FormData(form);
     const card = { cardNumber: String(data.get('cardNumber')).replace(/[ -]/g, ''), holderName: String(data.get('holderName')).trim(), expiryMonth: Number(data.get('expiryMonth')), expiryYear: Number(data.get('expiryYear')), cvv: String(data.get('cvv')) };
-    if (!['4242424242424242', '4000000000000002'].includes(card.cardNumber)) { setError('Số thẻ này chưa được hỗ trợ. Vui lòng kiểm tra lại.'); return; }
+    if (!['4242424242424242', '4000000000000002'].includes(card.cardNumber)) { setError('Hệ thống hiện chỉ nhận thẻ thử nghiệm: 4242 4242 4242 4242 để thanh toán, hoặc 4000 0000 0000 0002 để thử trường hợp bị từ chối. Số thẻ khác chưa được hỗ trợ.'); return; }
     if (card.holderName.length < 2 || card.holderName.length > 100 || !/^\d{3}$/.test(card.cvv) || Date.UTC(card.expiryYear, card.expiryMonth, 1) <= Date.now()) { setError('Kiểm tra tên chủ thẻ, hạn thẻ và mã bảo mật 3 chữ số.'); return; }
     setError('');
     try { await onPay(card); } finally { const cvv = form.elements.namedItem('cvv') as HTMLInputElement | null; if (cvv) cvv.value = ''; }

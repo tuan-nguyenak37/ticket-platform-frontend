@@ -22,7 +22,7 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
     const currentUrls = urls.current; const currentTimers = timers.current;
     return () => { clearInterval(timer); abort.current?.abort(); currentTimers.forEach(clearTimeout); currentUrls.forEach(url => URL.revokeObjectURL(url)); };
   }, []);
-  const query = useQuery({ queryKey: ['commerce', 'order', manage, id], queryFn: ({ signal }) => getOrder(id, manage, signal), refetchInterval: q => !q.state.error && q.state.dataUpdateCount < 60 && q.state.data?.status === 'pending_payment' ? 5000 : false, refetchIntervalInBackground: false });
+  const query = useQuery({ queryKey: ['commerce', 'order', manage, id], queryFn: ({ signal }) => getOrder(id, manage, signal), refetchInterval: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
   const mutation = useMutation({ mutationFn: (action: OrderAction) => actOnOrder(id, action, manage), retry: false });
   async function reconcile() {
     await Promise.all([query.refetch(), client.invalidateQueries({ queryKey: ['commerce', 'orders'] }), client.invalidateQueries({ queryKey: ['commerce', 'tickets'] }), client.invalidateQueries({ queryKey: ['commerce', 'my-tickets'] })]);

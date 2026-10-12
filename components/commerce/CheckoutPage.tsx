@@ -14,7 +14,7 @@ import { Failure } from './shared';
 
 export function CheckoutPage({ id }: { id: string }) {
   const actor = useAuthStore(state => state.user?.user_id); const client = useQueryClient();
-  const query = useQuery({ queryKey: ['commerce', 'order', false, id], queryFn: ({ signal }) => getOrder(id, false, signal), retry: false, refetchInterval: q => !q.state.error && q.state.dataUpdateCount < 60 && q.state.data?.status === 'pending_payment' && Date.parse(q.state.data.expiresAt) > Date.now() ? 5000 : false, refetchIntervalInBackground: false });
+  const query = useQuery({ queryKey: ['commerce', 'order', false, id], queryFn: ({ signal }) => getOrder(id, false, signal), retry: false, refetchInterval: false, refetchOnWindowFocus: false, refetchOnReconnect: false });
   const lock = useRef(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<unknown>(null); const [message, setMessage] = useState(''); const [now, setNow] = useState(0); const [retryAt, setRetryAt] = useState(0);
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   async function operate(card?: DemoCard) {
