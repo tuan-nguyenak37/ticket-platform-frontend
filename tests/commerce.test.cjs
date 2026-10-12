@@ -146,3 +146,26 @@ test('attachment list renders both parties and metadata without exposing remote 
   assert.match(html, /&lt;seller&gt;/); assert.doesNotMatch(html, /external.test|<object|<img/);
   assert.match(renderToStaticMarkup(React.createElement(DisputeAttachments, { orderId: 'order', attachments: [] })), /Chưa có file bằng chứng/);
 });
+
+
+test('user API respects self/admin paths, exact fields and untrimmed passwords', async () => {
+  const calls = []; const send = async (...args) => { calls.push(args); return { data: { success: true, data: {} } }; };
+  const api = load('lib/users/api.ts', { '@/lib/auth/session': { apiClient: { get: send, patch: send, post: send } }, '@/lib/http/http-errors': { AppApiError: Error } });
+  await api.listUsers(); assert.equal(calls.at(-1)[0], '/users');
+  assert.equal(calls.at(-1)[1].params, undefined);
+  await api.getUser('user/1'); assert.equal(calls.at(-1)[0], '/users/user%2F1');
+  await api.getProfile(); assert.equal(calls.at(-1)[0], '/users/me');
+  await api.saveName('  New name  '); assert.equal(calls.at(-1)[0], '/users/me');
+  assert.equal(JSON.stringify(calls.at(-1)[1]), '{"fullName":"New name"}');
+  await api.saveName('Name', 'user1'); assert.equal(calls.at(-1)[0], '/users/user1');
+  await api.setUserStatus('user1', 'suspended', '  Reason  ');
+  assert.equal(calls.at(-1)[0], '/users/user1/status');
+  assert.equal(JSON.stringify(calls.at(-1)[1]), '{"status":"suspended","reason":"Reason"}');
+  await api.changePassword(' old password ', ' new password ');
+  assert.equal(calls.at(-1)[0], '/users/me/password');
+  assert.equal(calls.at(-1)[1].currentPassword, ' old password ');
+  assert.equal(calls.at(-1)[1].newPassword, ' new password ');
+  await api.createUser({ email: 'user@example.test', password: 'test-only-password' });
+  assert.equal(calls.at(-1)[0], '/users');
+  assert.deepEqual(Object.keys(calls.at(-1)[1]).sort(), ['email', 'password']);
+});

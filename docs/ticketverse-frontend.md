@@ -89,3 +89,10 @@ PDF test và sự kiện tổng hợp chỉ phục vụ kiểm thử local, khô
 Kiểm tra ngày 12/10/2026: production build, TypeScript, ESLint trên app/components/lib/tests và các file cấu hình đều đạt; 26 test đạt. Chưa chạy lại luồng E2E với backend vừa cập nhật.
 
 Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng chứng; tranh chấp đã đóng vẫn xem được file. Chưa kiểm chứng xem/tải với dữ liệu tranh chấp thật trên backend cập nhật.
+
+## API người dùng
+
+- `/moderator/users`: ADMIN gọi GET /users (tối đa 100 tài khoản), GET /users/:id, POST /users, PATCH /users/:id và PATCH /users/:id/status. Tìm kiếm chỉ trên danh sách đã tải; không giả lập phân trang backend.
+- MODERATOR chỉ có form PATCH /users/:id/status theo mã USER. List/detail vẫn ADMIN-only theo controller hiện tại; backend cần cấp API tra cứu phù hợp nếu muốn moderator chọn người dùng từ danh sách.
+- `/dashboard/profile`: GET/PATCH /users/me và PATCH /users/me/password; chỉ sửa fullName. Đổi mật khẩu thành công xóa phiên và yêu cầu đăng nhập lại; không trim mật khẩu.
+- Không có thao tác đổi role, email, reset mật khẩu người khác hoặc xóa tài khoản. Chưa kiểm chứng runtime các thao tác ghi bằng tài khoản thật trong lần tích hợp này.
