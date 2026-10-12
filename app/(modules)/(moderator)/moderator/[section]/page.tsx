@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { ModeratorSection } from '../../_components/ModeratorSection';
-import { sectionContent, type SectionKey } from '../../_lib/moderator.mock';
+import { sectionContent, type SectionKey } from '../../_lib/moderator.sections';
 
 export default async function SectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section } = await params;

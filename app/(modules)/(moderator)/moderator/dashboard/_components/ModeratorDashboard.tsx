@@ -1,18 +1,15 @@
-'use client';
-import { CalendarDays } from 'lucide-react';
-import { useModeratorDashboard } from '../_hooks/useModeratorDashboard';
-import { EventSummary } from './EventSummary';
-import { PendingEvents } from './PendingEvents';
-import { RecentCheckins } from './RecentCheckins';
-import { DashboardAlerts } from './DashboardAlerts';
-import { RecentActivity } from './RecentActivity';
+import Link from 'next/link';
+
+const sections = [
+  { href: '/moderator/events', title: 'Quản lý sự kiện', description: 'Xem, cập nhật và quản lý sự kiện từ hệ thống.' },
+  { href: '/moderator/tickets', title: 'Duyệt vé', description: 'Kiểm tra PDF, đối chiếu OCR và xử lý vé cần duyệt.' },
+  { href: '/moderator/orders', title: 'Quản lý đơn hàng', description: 'Theo dõi giao dịch và xử lý tranh chấp.' },
+];
+
 export function ModeratorDashboard() {
-  const { data } = useModeratorDashboard();
   return <div className="space-y-6">
-    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-2 text-xs font-medium text-violet-600">Xin chào, Minh Anh 👋</p><h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Tổng quan kiểm duyệt</h1><p className="mt-2 text-sm text-slate-500">Theo dõi hoạt động và giữ cộng đồng sự kiện an toàn.</p></div><div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"><CalendarDays size={15} aria-hidden="true" />05 tháng 10, 2026</div></div>
-    <p className="text-[11px] text-slate-400">Bản xem trước giao diện · Dữ liệu minh họa</p>
-    <EventSummary /><PendingEvents events={data.pendingEvents} />
-    <div className="grid gap-6 xl:grid-cols-[1.25fr_1fr]"><RecentCheckins todayEvents={data.todayEvents} /><DashboardAlerts alerts={data.alerts} /></div>
-    <RecentActivity activities={data.activities} />
+    <div><h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">Tổng quan kiểm duyệt</h1><p className="mt-2 text-sm text-slate-500">Truy cập các chức năng quản lý dữ liệu trên hệ thống.</p></div>
+    <div className="grid gap-4 md:grid-cols-3">{sections.map(section => <Link key={section.href} href={section.href} className="rounded-2xl border border-slate-200 bg-white p-6 transition-colors hover:border-violet-400 focus-visible:outline-2 focus-visible:outline-violet-600"><h2 className="font-semibold">{section.title}</h2><p className="mt-2 text-sm text-slate-500">{section.description}</p></Link>)}</div>
+    <p className="text-sm text-slate-500">Thống kê tổng hợp, lịch sử hoạt động và check-in chưa có API hỗ trợ.</p>
   </div>;
 }
