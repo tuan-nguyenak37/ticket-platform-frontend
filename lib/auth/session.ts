@@ -168,6 +168,10 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error: unknown) => {
+    // File endpoints return JSON error envelopes even when requested as blobs.
+    if (axios.isAxiosError(error) && typeof Blob !== 'undefined' && error.response?.data instanceof Blob) {
+      try { error.response.data = JSON.parse(await error.response.data.text()); } catch { /* Preserve HTTP status for non-JSON errors. */ }
+    }
     const failure = formatHttpError(error);
     const config = axios.isAxiosError(error) ? error.config as AuthRequest | undefined : undefined;
     if (failure.statusCode !== 401 || !config || !sameSession(config._revision!)) throw failure;

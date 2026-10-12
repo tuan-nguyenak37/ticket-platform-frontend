@@ -12,12 +12,11 @@ export interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
-  const [mode, setMode] = React.useState<'login' | 'register'>(initialMode);
+  return isOpen ? <OpenAuthModal key={initialMode} isOpen onClose={onClose} initialMode={initialMode} /> : null;
+}
 
-  // Đồng bộ initialMode khi modal được mở lại
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode, isOpen]);
+function OpenAuthModal({ isOpen, onClose, initialMode = 'login' }: AuthModalProps) {
+  const [mode, setMode] = React.useState<'login' | 'register'>(initialMode);
 
   // Đóng modal khi bấm phím Escape
   useEffect(() => {

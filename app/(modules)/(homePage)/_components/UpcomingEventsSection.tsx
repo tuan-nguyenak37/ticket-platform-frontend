@@ -65,16 +65,15 @@ export function UpcomingEventsSection() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const allEvents = data?.items ?? [];
-
   // Filter events by selected tab, gracefully fallback to all upcoming events if strict filter has no matches
   const displayedEvents = useMemo(() => {
+    const allEvents = data?.items ?? [];
     if (allEvents.length === 0) return [];
     const filtered = allEvents.filter(
       activeTab === 'weekend' ? isEventThisWeekend : isEventThisMonth
     );
     return filtered.length > 0 ? filtered : allEvents;
-  }, [allEvents, activeTab]);
+  }, [data?.items, activeTab]);
 
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;

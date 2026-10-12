@@ -1,0 +1,118 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const ts = require('typescript');
+function load(file, dependencies = {}) {
+  const code = ts.transpileModule(fs.readFileSync(path.resolve(file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const exports = {};
+  vm.runInNewContext(code, { exports, require: name => dependencies[name] ?? require(name), Intl, Date, Promise, process });
+  return exports;
+}
+const rules = load('lib/commerce/rules.ts');
+const baseOrder = { status: 'paid', buyerId: 'buyer', sellerId: 'seller', expiresAt: '2099-01-01T00:00:00Z', disputeUntil: '2099-01-02T00:00:00Z', dispute: null, payoutStatus: 'pending', payment: { status: 'succeeded' } };
+test('two buyers: only the allocated paid order permits download; refund_pending never does', () => {
+  assert.equal(rules.orderPermissions(baseOrder, 'buyer', false, Date.now()).download, true);
+  const loser = { ...baseOrder, status: 'refund_pending' };
+  assert.equal(rules.orderPermissions(loser, 'buyer', false, Date.now()).download, false);
+  assert.equal(rules.orderPermissions(loser, 'buyer', false, Date.now()).pay, false);
+  assert.equal(rules.orderPermissions(loser, 'manager', true, Date.now()).refund, true);
+  assert.equal(rules.orderPermissions({ ...loser, status: 'refunded' }, 'manager', true, Date.now()).refund, false);
+});
+test('dispute lifecycle enforces buyer deadline, one seller reply and independent manager', () => {
+  const permission = (order, actor, manage = false) => rules.orderPermissions(order, actor, manage, Date.now());
+  assert.equal(permission(baseOrder, 'buyer').dispute, true);
+  assert.equal(permission(baseOrder, 'seller').dispute, false);
+  assert.equal(permission({ ...baseOrder, disputeUntil: '2000-01-01' }, 'buyer').dispute, false);
+  const disputed = { ...baseOrder, status: 'disputed', dispute: { status: 'open', sellerResponse: null } };
+  assert.equal(permission(disputed, 'seller').reply, true);
+  assert.equal(permission({ ...disputed, dispute: { status: 'open', sellerResponse: 'Submitted' } }, 'seller').reply, false);
+  assert.equal(permission(disputed, 'manager', true).resolve, true);
+  for (const actor of ['buyer', 'seller', undefined]) assert.equal(permission(disputed, actor, true).resolve, false);
+  assert.equal(permission({ ...disputed, dispute: { status: 'accepted' } }, 'manager', true).resolve, false);
+});
+test('payout needs completed, ready and succeeded; own transaction is forbidden', () => {
+  const order = { ...baseOrder, status: 'completed', payoutStatus: 'ready' };
+  assert.equal(rules.orderPermissions(order, 'manager', true, Date.now()).payout, true);
+  for (const actor of ['buyer', 'seller']) assert.equal(rules.orderPermissions(order, actor, true, Date.now()).payout, false);
+  for (const payoutStatus of ['none', 'pending', 'blocked', 'paid']) assert.equal(rules.orderPermissions({ ...order, payoutStatus }, 'manager', true, Date.now()).payout, false);
+});
+test('idempotency key persists through retries/reloads; a new completed checkout gets a new key', () => {
+  const memory = new Map();
+  const storage = { getItem: key => memory.get(key), setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) };
+  let generated = 0; const generate = () => `checkout-${++generated}`;
+  assert.equal(rules.checkoutKey(storage, 'buyer', 'ticket', generate), 'checkout-1');
+  assert.equal(rules.checkoutKey(storage, 'buyer', 'ticket', generate), 'checkout-1');
+  assert.equal(rules.checkoutKey(storage, 'buyer2', 'ticket', generate), 'checkout-2');
+  rules.clearCheckout(storage, 'buyer', 'ticket');
+  assert.equal(rules.checkoutKey(storage, 'buyer', 'ticket', generate), 'checkout-3');
+});
+test('PDF validation checks MIME, size and signature', async () => {
+  const file = new File(['%PDF-1.7 test'], 'ticket.pdf', { type: 'application/pdf' });
+  await rules.validatePdf(file, 100);
+  await assert.rejects(rules.validatePdf(file, 5));
+  await assert.rejects(rules.validatePdf(new File(['not a pdf'], 'ticket.pdf', { type: 'application/pdf' }), 100));
+  await assert.rejects(rules.validatePdf(new File(['%PDF-1.7'], 'image.png', { type: 'image/png' }), 100));
+});
+test('API uses contract payloads, protected files and surfaces backend failures', async () => {
+  const calls = []; let failure;
+  const request = async (...args) => { calls.push(args); if (failure) throw failure; return { data: { success: true, data: baseOrder } }; };
+  const api = load('lib/commerce/api.ts', { '@/lib/auth/session': { apiClient: { get: request, post: request, delete: request } }, '@/lib/http/axios-client': { createApiClient: () => ({ get: request }) }, '@/lib/http/http-errors': { AppApiError: Error } });
+  await api.createOrder('ticket', 'checkout-key');
+  assert.equal(calls[0][0], '/orders');
+  assert.equal(JSON.stringify(calls[0][1]), '{"ticketId":"ticket"}');
+  assert.equal(calls[0][2].headers['Idempotency-Key'], 'checkout-key');
+  await api.actOnOrder('order', { path: 'dispute/reply', body: { response: 'Evidence' } }, false);
+  assert.equal(calls[1][0], '/orders/me/order/dispute/reply');
+  await api.actOnOrder('order', { path: 'refund/mock' }, true);
+  assert.equal(calls[2][0], '/orders/manage/order/refund/mock');
+  assert.equal(calls[2][1], undefined);
+  await api.downloadOrder('order'); assert.equal(calls[3][1].responseType, 'blob');
+  for (const statusCode of [401, 403, 409, 500]) { failure = Object.assign(new Error('Backend error'), { statusCode }); await assert.rejects(api.createOrder('ticket', 'checkout-key'), error => error === failure); }
+});
+test('OCR polling is bounded and stops on completed, failure and stale request errors', () => {
+  let options;
+  const hooks = load('app/(modules)/(moderator)/moderator/tickets/_hooks/useTicketDetail.ts', {
+    '@tanstack/react-query': { useQuery: value => { options = value; return {}; }, useQueryClient: () => ({}), useMutation: () => ({}) },
+    '../_lib/tickets.api': {},
+  });
+  hooks.useTicketDetail('ticket');
+  const state = { dataUpdateCount: 99, data: { status: 'pending_review', check: { status: 'processing' } } };
+  assert.equal(options.refetchInterval({ state }), 3000);
+  assert.equal(options.refetchInterval({ state: { ...state, dataUpdateCount: 100 } }), false);
+  assert.equal(options.refetchInterval({ state: { ...state, error: new Error('failed') } }), false);
+  assert.equal(options.refetchIntervalInBackground, false);
+});
+
+test('refund_pending rendering explains the losing purchase and omits ticket download', () => {
+  const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
+  const order = { ...baseOrder, order_id: 'order-loser', amount: '400000.00', ticket: { eventName: 'Demo', ticketTier: 'VIP', seatInfo: 'A12' }, status: 'refund_pending', payment: { status: 'refund_pending' } };
+  const { OrderDetail } = load('components/commerce/OrderDetail.tsx', {
+    'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+    '@tanstack/react-query': { useQuery: () => ({ data: order }), useQueryClient: () => ({}), useMutation: () => ({}) },
+    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
+    '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
+    './shared': { Failure: () => null },
+  });
+  const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
+  assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
+  assert.match(html, /người khác đã mua vé trước/);
+  assert.match(html, /Chưa có xác nhận hoàn tiền/);
+  assert.doesNotMatch(html, /Tải vé qua kết nối xác thực/);
+});
+
+test('dispute evidence is displayed as escaped text and seller response form follows permissions', () => {
+  const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
+  const order = { ...baseOrder, order_id: 'order-dispute', amount: '400000.00', ticket: { eventName: 'Demo', ticketTier: 'VIP' }, status: 'disputed', dispute: { status: 'open', reason: 'Wrong tier', evidence: '<img src=x onerror=alert(1)> https://example.test', sellerResponse: null } };
+  const { OrderDetail } = load('components/commerce/OrderDetail.tsx', {
+    'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
+    '@tanstack/react-query': { useQuery: () => ({ data: order }), useQueryClient: () => ({}), useMutation: () => ({}) },
+    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
+    '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
+    './shared': { Failure: () => null },
+  });
+  const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
+  assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);
+  assert.match(html, /Gửi phản hồi/); assert.doesNotMatch(html, /Lưu quyết định|Tải vé qua kết nối xác thực/);
+});

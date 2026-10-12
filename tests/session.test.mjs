@@ -29,8 +29,8 @@ function harness(handler) {
   function load(filename) {
     filename = path.resolve(filename);
     if (cache.has(filename)) return cache.get(filename).exports;
-    const module = { exports: {} };
-    cache.set(filename, module);
+    const loadedModule = { exports: {} };
+    cache.set(filename, loadedModule);
     const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
     }).outputText;
@@ -39,8 +39,8 @@ function harness(handler) {
       if (name.startsWith('.')) return load(path.resolve(path.dirname(filename), name) + '.ts');
       return require(name);
     };
-    vm.runInThisContext(`(function(require,module,exports){${source}\n})`, { filename })(localRequire, module, module.exports);
-    return module.exports;
+    vm.runInThisContext(`(function(require,module,exports){${source}\n})`, { filename })(localRequire, loadedModule, loadedModule.exports);
+    return loadedModule.exports;
   }
   const previous = axios.defaults.adapter;
   axios.defaults.adapter = adapter;

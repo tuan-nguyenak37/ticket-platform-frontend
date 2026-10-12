@@ -21,3 +21,14 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+.commerce { --tv-panel: #ffffff08; --tv-border: #ffffff25; --tv-input: #111827; }
+.commerce-light { --tv-panel: #fff; --tv-border: #cbd5e1; --tv-input: #fff; color: #0f172a; color-scheme: light; }
+.commerce .tv-panel { background: var(--tv-panel); border: 1px solid var(--tv-border); border-radius: 1.5rem; padding: 1.5rem; }
+.commerce .tv-input { display: block; width: 100%; background: var(--tv-input); border: 1px solid var(--tv-border); border-radius: .75rem; padding: .75rem; margin-top: .4rem; }
+.commerce .tv-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--tv-border); border-radius: .75rem; padding: .65rem 1rem; font-weight: 600; }
+.commerce .tv-primary { background: #7c3aed; color: white; }
+.commerce button:not(:disabled), .commerce summary { cursor: pointer; }
+.commerce button:disabled { opacity: .45; cursor: not-allowed; }
+.commerce :is(button, a, input, select, textarea):focus-visible { outline: 2px solid #a78bfa; outline-offset: 3px; }
+.commerce label { font-size: .875rem; }

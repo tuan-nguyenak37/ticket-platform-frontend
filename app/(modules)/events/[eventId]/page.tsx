@@ -2,12 +2,11 @@
 
 import React, { use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Ticket, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { usePublicEventDetail } from './_hooks/usePublicEventDetail';
 import { EventHero } from './_components/EventHero';
 import { TicketMarketplace } from './_components/TicketMarketplace';
 import { EventInfoTabs } from './_components/EventInfoTabs';
-import { mockTicketListings } from './_lib/tickets-marketplace.mock';
 
 export default function PublicEventDetailPage({
   params,
@@ -17,7 +16,6 @@ export default function PublicEventDetailPage({
   const { eventId } = use(params);
   const { data: event, isLoading, error } = usePublicEventDetail(eventId);
 
-  const ticketCount = mockTicketListings.length;
 
   if (isLoading) {
     return (
@@ -63,10 +61,10 @@ export default function PublicEventDetailPage({
   return (
     <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8 space-y-10">
       {/* 1. Hero Event Section (Poster + Tiêu đề + Ngày giờ + Địa điểm + Đếm vé pass) */}
-      <EventHero event={event} ticketCount={ticketCount} />
+      <EventHero event={event} />
 
       {/* 2. TÌM VÉ (Sàn Pass Vé Marketplace) */}
-      <TicketMarketplace eventName={event.name} />
+      <TicketMarketplace eventId={eventId} />
 
       {/* 3. Thông tin bổ sung, Sơ đồ khán đài & Chính sách */}
       <EventInfoTabs event={event} />

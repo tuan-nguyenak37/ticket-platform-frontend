@@ -6,7 +6,6 @@ import {
   Calendar,
   MapPin,
   ArrowLeft,
-  Flame,
   Tag,
   Share2,
   Heart,
@@ -19,10 +18,9 @@ import { useEventCategories } from '@/lib/events/useEventCategories';
 
 interface EventHeroProps {
   event: EventItem;
-  ticketCount: number;
 }
 
-export function EventHero({ event, ticketCount }: EventHeroProps) {
+export function EventHero({ event }: EventHeroProps) {
   const { data: categories } = useEventCategories();
   const categoryName = categories?.find(category => category.category_id === event.categoryId)?.name;
   const posterSrc = getImageUrl(event.bannerUrl);
@@ -92,7 +90,7 @@ export function EventHero({ event, ticketCount }: EventHeroProps) {
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
             <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[11px] font-semibold text-white/90">
               <span className="flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 backdrop-blur-md border border-white/10">
-                <ShieldCheck className="size-3.5 text-emerald-400" /> Vé chính chủ
+                <ShieldCheck className="size-3.5 text-emerald-400" /> Thông tin sự kiện
               </span>
             </div>
           </div>
@@ -109,7 +107,7 @@ export function EventHero({ event, ticketCount }: EventHeroProps) {
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 text-xs font-medium text-emerald-300">
                     <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Đang mở pass vé
+                    {event.phase === 'ended' ? 'Sự kiện đã kết thúc' : 'Sự kiện công khai'}
                   </span>
                 </div>
 
@@ -166,7 +164,7 @@ export function EventHero({ event, ticketCount }: EventHeroProps) {
         {/* Wireframe-matched simple indicator */}
         <div className="pt-6 border-t border-white/10 text-center">
           <p className="text-sm font-semibold tracking-wide text-white/80">
-            <span className="text-violet-400 font-bold">{ticketCount}</span> vé đang được pass
+            Danh sách vé đang bán được cập nhật từ hệ thống bên dưới
           </p>
         </div>
       </div>
