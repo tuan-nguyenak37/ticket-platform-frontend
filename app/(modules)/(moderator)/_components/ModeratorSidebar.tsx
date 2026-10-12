@@ -18,10 +18,10 @@ export function ModeratorSidebar({ mobileOpen, setMobileOpen }: { mobileOpen: bo
         <div className="mx-5 mt-5 flex items-center gap-2 rounded-lg border border-violet-100 bg-violet-50 px-3 py-2.5 text-xs font-medium text-violet-700"><ShieldCheck size={16} aria-hidden="true" />Không gian kiểm duyệt</div>
         <p className="mb-3 mt-7 px-6 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Quản lý nền tảng</p>
         <nav aria-label="Điều hướng Moderator" className="space-y-1 px-3">
-          {moderatorMenu.map(({ href, label, icon: Icon, badge }) => {
-            const selected = pathname === href;
+          {moderatorMenu.map(({ href, label, icon: Icon }) => {
+            const selected = pathname === href || pathname.startsWith(`${href}/`);
             return <Link key={href} href={href} aria-current={selected ? 'page' : undefined} onClick={() => { setMobileOpen(false); }} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors ${selected ? 'bg-violet-600 font-semibold text-white shadow-md shadow-violet-200/60' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>
-              <Icon size={19} strokeWidth={selected ? 2 : 1.7} aria-hidden="true" />{label}{badge && <span className={`ml-auto rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${selected ? 'bg-white/20 text-white' : 'bg-violet-50 text-violet-600'}`}>{badge}</span>}
+              <Icon size={19} strokeWidth={selected ? 2 : 1.7} aria-hidden="true" />{label}
             </Link>;
           })}
         </nav>
