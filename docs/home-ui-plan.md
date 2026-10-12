@@ -46,7 +46,7 @@ Các trường mô tả, ảnh và `pinnedAt` có thể null. Không có giá v�
 - Navbar chỉ render một lần qua SiteShell. Home hiện import Navbar lần nữa, cần bỏ lần render đó.
 - Desktop: một hàng; mobile: logo/actions hàng đầu, ô tìm kiếm toàn chiều rộng hàng dưới.
 - Nút tìm kiếm hoặc Enter dẫn tới `/events?q=<từ khóa đã encode>`. Postman xác nhận API list public hỗ trợ `q`; trang `/events` phải được kiểm tra/tạo handler trước khi bật điều hướng.
-- Giữ logic AuthModal khi chưa đăng nhập. Kiểm tra route `/organizer/create` và `/dashboard/tickets` hiện được Navbar tham chiếu, không để CTA dẫn vào trang chưa tồn tại.
+- Giữ logic AuthModal khi chưa đăng nhập. Kiểm tra route `/organizer/create` và `/ve-cua-toi` hiện được Navbar tham chiếu, không để CTA dẫn vào trang chưa tồn tại.
 - Không lọc riêng các slide pinned bằng ô tìm kiếm; tìm kiếm phải áp dụng cho danh sách sự kiện public.
 
 ### Banner carousel

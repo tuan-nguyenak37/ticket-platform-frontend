@@ -33,12 +33,12 @@ Build hiện dùng next/font/google (Geist và Geist Mono), cần kết nối Go
 | `/moderator/tickets` | ADMIN/MODERATOR: hàng chờ, tìm kiếm, lọc trạng thái/OCR/cách duyệt và sự kiện/danh mục/hạng/giá, phân trang |
 | `/moderator/tickets/[ticketId]` | PDF riêng tư, dữ liệu khai báo, OCR/expected/confidence/evidence/cảnh báo/trùng, kiểm tra lại, duyệt/từ chối |
 | `/organizer/create` | Chọn sự kiện từ API, một PDF, giá gốc và giá bán lại VNĐ |
-| `/dashboard/tickets` | Vé tôi đăng, lọc và phân trang |
-| `/dashboard/tickets/[ticketId]` | Chi tiết/trạng thái OCR và hủy đăng theo trạng thái được phép |
+| `/ve-cua-toi` | Vé tôi đăng, lọc và phân trang |
+| `/ve-cua-toi/[ticketId]` | Chi tiết/trạng thái OCR và hủy đăng theo trạng thái được phép |
 | `/tickets` | Tìm vé public, bộ lọc đúng DTO, chọn vé và xác nhận tạo đơn |
 | `/events/[eventId]` | Thay danh sách vé mock bằng API theo eventId |
-| `/dashboard/orders` | Đơn mua/bán, lọc side/status, phân trang |
-| `/dashboard/orders/[orderId]` | Trạng thái backend, mock payment, hủy, tải vé, mở tranh chấp/phản hồi |
+| `/don-hang` | Đơn mua/bán, lọc side/status, phân trang |
+| `/don-hang/[orderId]` | Trạng thái backend, mock payment, hủy, tải vé, mở tranh chấp/phản hồi |
 | `/moderator/orders` | Danh sách quản trị và bộ lọc trạng thái |
 | `/moderator/orders/[orderId]` | Giải quyết tranh chấp, hoàn tiền/chi trả giả lập theo quyền và trạng thái |
 
@@ -94,12 +94,12 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 
 - `/moderator/users`: ADMIN gọi GET /users (tối đa 100 tài khoản), GET /users/:id, POST /users, PATCH /users/:id và PATCH /users/:id/status. Tìm kiếm chỉ trên danh sách đã tải; không giả lập phân trang backend.
 - MODERATOR chỉ có form PATCH /users/:id/status theo mã USER. List/detail vẫn ADMIN-only theo controller hiện tại; backend cần cấp API tra cứu phù hợp nếu muốn moderator chọn người dùng từ danh sách.
-- `/dashboard/profile`: GET/PATCH /users/me và PATCH /users/me/password; chỉ sửa fullName. Đổi mật khẩu thành công xóa phiên và yêu cầu đăng nhập lại; không trim mật khẩu.
+- `/tai-khoan`: GET/PATCH /users/me và PATCH /users/me/password; chỉ sửa fullName. Đổi mật khẩu thành công xóa phiên và yêu cầu đăng nhập lại; không trim mật khẩu.
 - Không có thao tác đổi role, email, reset mật khẩu người khác hoặc xóa tài khoản. Chưa kiểm chứng runtime các thao tác ghi bằng tài khoản thật trong lần tích hợp này.
 
 ## Thanh toán thẻ demo mới (13/10/2026)
 
-- `/dashboard/orders/[orderId]/checkout`: trang riêng cho người mua; form chỉ chấp nhận hai thẻ demo trong tài liệu backend. Tạo đơn chuyển sang checkout; chi tiết đơn có liên kết tiếp tục thanh toán.
+- `/thanh-toan/[orderId]`: trang riêng cho người mua; form chỉ chấp nhận hai thẻ demo trong tài liệu backend. Tạo đơn chuyển sang checkout; chi tiết đơn có liên kết tiếp tục thanh toán.
 - POST /orders/me/:id/payments không body, có Idempotency-Key riêng theo buyer/order. POST /payments/:paymentId/confirm gửi cardNumber/holderName/expiryMonth/expiryYear/cvv; không gửi result hoặc amount. Đã bỏ luồng mock-result cũ (410).
 - Số thẻ/CVV chỉ dùng trong form và request xác nhận, không lưu storage hoặc mutation cache. CVV xóa sau mỗi lần gửi. Key của lần thử giữ khi lỗi mạng; sau kết quả cuối/hủy mới xóa để lần thử tiếp theo sinh key mới. Reload đối chiếu lịch sử để tìm payment pending, không tạo trùng.
 - Hủy lần thanh toán không hủy đơn. Failed/cancelled có thể thử lại trên cùng đơn còn hạn; không gia hạn. Refund_pending không cấp file. Mọi kết quả lấy từ response API, không suy luận HTTP 200 là thanh toán thành công.

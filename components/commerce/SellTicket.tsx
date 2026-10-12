@@ -31,7 +31,7 @@ export function SellTicket() {
       }
       const result = await mutation.mutateAsync(data);
       await client.invalidateQueries({ queryKey: ['commerce', 'my-tickets'] });
-      router.push(`/dashboard/tickets/${encodeURIComponent(result.ticket_id)}`);
+      router.push(`/ve-cua-toi/${encodeURIComponent(result.ticket_id)}`);
     } catch (failure) { setError(failure instanceof Error ? failure : new Error('Không thể đăng vé.')); }
     finally { lock.current = false; setBusy(false); }
   }
