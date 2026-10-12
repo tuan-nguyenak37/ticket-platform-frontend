@@ -7,6 +7,8 @@ import { dateTime, money, orderLabels, orderPermissions, payoutLabels } from '@/
 import { useAuthStore } from '@/lib/store/auth.store';
 import { Failure } from './shared';
 import { DisputeAttachments } from './DisputeAttachments';
+import { CardCheckout } from './CardCheckout';
+import { payWithDemoCard } from '@/lib/commerce/payment';
 
 const demoEnabled = process.env.NEXT_PUBLIC_PAYMENT_MOCK_ENABLED === 'true';
 const paymentLabels = { pending: 'Chờ kết quả', succeeded: 'Thành công', failed: 'Thất bại', cancelled: 'Đã hủy', refund_pending: 'Chờ hoàn tiền', refunded: 'Đã hoàn tiền' };
@@ -33,6 +35,18 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
       setMessage(`Trạng thái đơn hàng: ${orderLabels[order.status]}.`);
     } catch (failure) { setError(failure); }
     finally { await reconcile(); lock.current = false; setBusy(false); }
+  }
+  async function payByCard() {
+    if (lock.current) return;
+    lock.current = true; setBusy(true); setError(null); setMessage('');
+    try {
+      const updated = await payWithDemoCard(id);
+      client.setQueryData(['commerce', 'order', manage, id], updated);
+      setMessage(`Trạng thái đơn hàng: ${orderLabels[updated.status]}.`);
+    } catch (failure) { setError(failure); }
+    finally {
+      try { await reconcile(); } finally { lock.current = false; setBusy(false); }
+    }
   }
   async function download() {
     if (lock.current) return; lock.current = true; setBusy(true); setError(null); abort.current = new AbortController();
@@ -68,12 +82,12 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
         {manage && (actor === order.buyerId || actor === order.sellerId) && <p role="alert">Bạn là một bên giao dịch, không được giải quyết tranh chấp, hoàn tiền hoặc chi trả đơn này.</p>}
         <div className="flex flex-wrap gap-3">{permissions.download && <button className="tv-button tv-primary" disabled={disabled} onClick={() => void download()}>Tải vé qua kết nối xác thực</button>}{permissions.cancel && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'cancel' })}>Hủy đơn chờ thanh toán</button>}</div>
       </section>
-      {demoEnabled && (permissions.pay || permissions.refund || permissions.payout) && <section className="tv-panel space-y-4"><h2 className="font-bold">Môi trường phát triển / demo · Không có tiền thật</h2><p className="text-sm">Thanh toán, hoàn tiền và chi trả đều giả lập. Chưa tích hợp VNPay.</p><div className="flex flex-wrap gap-3">
-        {permissions.pay && !order.payment && <button className="tv-button tv-primary" disabled={disabled} onClick={() => void act({ path: 'payment' })}>Khởi tạo thanh toán giả lập</button>}
-        {permissions.pay && order.payment?.status === 'pending' && <><button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'payment/mock-result', body: { result: 'success' } })}>Giả lập thành công</button><button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'payment/mock-result', body: { result: 'failed' } })}>Giả lập thất bại</button><button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'payment/mock-result', body: { result: 'cancelled' } })}>Giả lập hủy thanh toán</button></>}
+      {demoEnabled && permissions.pay && <CardCheckout key={id} order={order} busy={disabled} onPay={payByCard} />}
+      {!manage && actor === order.buyerId && ['paid', 'delivered', 'completed'].includes(order.status) && <section role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6"><h2 className="text-xl font-semibold text-emerald-300">Thanh toán đã được xác nhận</h2><p className="mt-2 text-sm">Vé của bạn đã sẵn sàng. Bạn có thể tải vé trong đơn hàng này.</p></section>}
+      {demoEnabled && (permissions.refund || permissions.payout) && <section className="tv-panel space-y-4"><h2 className="font-bold">Xử lý giao dịch thử nghiệm</h2><div className="flex flex-wrap gap-3">
         {permissions.refund && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'refund/mock' })}>Xác nhận hoàn tiền giả lập</button>}{permissions.payout && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'payout/mock' })}>Xác nhận chi trả giả lập</button>}
       </div></section>}
-      {!demoEnabled && permissions.pay && <p className="tv-panel">Thanh toán giả lập đang tắt trên giao diện. Hiện chưa có cổng thanh toán thật.</p>}
+      {!demoEnabled && permissions.pay && <p className="tv-panel">Thanh toán hiện chưa khả dụng. Vui lòng quay lại sau.</p>}
       {['cancelled', 'expired'].includes(order.status) && !manage && actor === order.buyerId && <p className="tv-panel">Lần mua này đã kết thúc. <Link className="underline" href="/tickets">Chọn vé và tạo lần mua mới</Link> để dùng mã giao dịch mới.</p>}
       {order.dispute && <section className="tv-panel space-y-4"><h2 className="font-bold">Tranh chấp · {({ open: 'Đang mở', accepted: 'Được chấp nhận', rejected: 'Bị bác bỏ' })[order.dispute.status]}</h2><p className="whitespace-pre-wrap break-words">Lý do: {order.dispute.reason}</p><p className="whitespace-pre-wrap break-words">Bằng chứng: {order.dispute.evidence}</p><p className="whitespace-pre-wrap break-words">Phản hồi người bán: {order.dispute.sellerResponse || 'Chưa phản hồi'}</p>{order.dispute.resolution && <p className="whitespace-pre-wrap break-words">Quyết định: {order.dispute.resolution} · {dateTime(order.dispute.resolvedAt)}</p>}<DisputeAttachments key={id} orderId={id} attachments={order.dispute.attachments ?? []} /></section>}
       {permissions.dispute && <form className="tv-panel space-y-4" onSubmit={e => formAction(e, 'dispute')}><h2 className="font-bold">Gửi tranh chấp</h2><fieldset disabled={disabled} className="space-y-3"><label className="block">Lý do *<textarea name="reason" required maxLength={2000} rows={3} className="tv-input" /></label><label className="block">Bằng chứng dạng văn bản *<textarea name="evidence" required maxLength={5000} rows={5} className="tv-input" /></label><p className="text-sm opacity-70">Mỗi đơn một tranh chấp. Biểu mẫu này gửi bằng chứng văn bản; file đã gửi được hiển thị trong chi tiết tranh chấp.</p><button className="tv-button tv-primary">Gửi tranh chấp</button></fieldset></form>}

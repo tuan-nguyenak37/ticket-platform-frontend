@@ -96,3 +96,7 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - MODERATOR chỉ có form PATCH /users/:id/status theo mã USER. List/detail vẫn ADMIN-only theo controller hiện tại; backend cần cấp API tra cứu phù hợp nếu muốn moderator chọn người dùng từ danh sách.
 - `/dashboard/profile`: GET/PATCH /users/me và PATCH /users/me/password; chỉ sửa fullName. Đổi mật khẩu thành công xóa phiên và yêu cầu đăng nhập lại; không trim mật khẩu.
 - Không có thao tác đổi role, email, reset mật khẩu người khác hoặc xóa tài khoản. Chưa kiểm chứng runtime các thao tác ghi bằng tài khoản thật trong lần tích hợp này.
+
+## Thanh toán bằng thẻ thử nghiệm
+
+Chi tiết đơn mua có giao diện thẻ, thông tin đơn, tổng tiền và nút Thanh toán. Dùng thẻ thử nghiệm điền sẵn; không gửi/lưu số thẻ hoặc CVV. Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true trên frontend và PAYMENT_MOCK_ENABLED=true ở backend development/test. Đọc lại đơn trước khi gọi payment, sau đó mock-result với result=success; kết quả hiển thị theo response, kể cả refund_pending. Retry sau mất kết nối đối chiếu đơn trước khi gửi tiếp. Không hỗ trợ trừ tiền thật. Chưa kiểm thử runtime với backend trong lần cập nhật giao diện này.
