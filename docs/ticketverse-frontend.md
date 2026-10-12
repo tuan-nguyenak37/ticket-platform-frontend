@@ -52,7 +52,7 @@ Build hiện dùng next/font/google (Geist và Geist Mono), cần kết nối Go
 - **Đối chiếu runtime/controller:** PATCH review trả `TicketResponseDto.from`, không có event/check/review/fileUrl. Sau quyết định chỉ invalidate/refetch GET detail; không ghi DTO rút gọn vào cache chi tiết.
 - Mỗi lần tạo đơn mới có UUID Idempotency-Key; sessionStorage lưu theo buyer/ticket trước request. Retry và reload dùng key cũ đến khi nhận response thành công. Lần mua mới sau kết quả đã xác nhận dùng key mới. Nếu storage bị chặn, không gửi đơn vì không đảm bảo retry qua reload. Không lưu token/password vào storage.
 - Tạo đơn không giữ vé. Đơn pending tự đọc lại tối đa 60 lần, 5 giây/lần; không tự đánh dấu trả tiền, hết hạn hay cấp vé dựa vào đồng hồ frontend. Backend quyết định. `refund_pending` không có quyền tải file và không được hiển thị như đã hoàn tiền.
-- Bằng chứng tranh chấp là text, không upload ảnh và không biến URL người dùng nhập thành liên kết. Seller chỉ phản hồi một lần; manager thuộc giao dịch không giải quyết/hoàn tiền/chi trả.
+- Bằng chứng văn bản được hiển thị nguyên văn, không biến URL người dùng nhập thành liên kết. Danh sách dispute.attachments hiển thị bên gửi, người gửi, MIME, dung lượng và thời gian; xem ảnh/PDF và tải qua API có xác thực. Đóng/chuyển bằng chứng hoặc rời trang hủy request và thu hồi object URL. Giao diện upload bằng chứng chưa triển khai. Seller chỉ phản hồi một lần; manager thuộc giao dịch không giải quyết/hoàn tiền/chi trả.
 - PDF quản trị và file đơn mua dùng Axios blob có xác thực. Không dùng fileUrl làm URL static. Object URL thu hồi khi unmount hoặc sau download; lỗi JSON của endpoint blob được giải mã để giữ nguyên HTTP status và thông báo.
 - Nút gửi dùng pending state + khóa tức thời chống double-click; mutation không tự retry. Các thao tác lỗi hiển thị thật, không fallback mock. Các module mock mua vé cũ đã được gỡ khỏi repository.
 
@@ -87,3 +87,5 @@ PDF test và sự kiện tổng hợp chỉ phục vụ kiểm thử local, khô
 Đã gỡ dữ liệu sự kiện, thống kê, check-in, cảnh báo và bản ghi minh họa khỏi workspace moderator. Dashboard liên kết đến các trang sự kiện/vé/đơn hàng dùng API thật. Các mục chưa tích hợp hiển thị thông báo rõ ràng, không trả danh sách giả. Thay đổi này chỉ dọn frontend, không xóa bản ghi trong database backend.
 
 Kiểm tra ngày 12/10/2026: production build, TypeScript, ESLint trên app/components/lib/tests và các file cấu hình đều đạt; 26 test đạt. Chưa chạy lại luồng E2E với backend vừa cập nhật.
+
+Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng chứng; tranh chấp đã đóng vẫn xem được file. Chưa kiểm chứng xem/tải với dữ liệu tranh chấp thật trên backend cập nhật.

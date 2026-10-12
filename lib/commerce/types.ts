@@ -17,8 +17,12 @@ export interface Order {
   expiresAt: string; paidAt: string | null; deliveredAt: string | null; disputeUntil: string | null; reason: string | null;
   payoutStatus: 'none' | 'pending' | 'ready' | 'paid' | 'blocked'; createdAt: string; updatedAt: string;
 }
+export interface DisputeAttachment {
+  id: string; uploadedBy: string; side: 'buyer' | 'seller'; mimetype: string;
+  size: number; createdAt: string; downloadUrl: string;
+}
 export interface OrderDetail extends Order {
   payment: { payment_id: string; provider: 'mock'; amount: string; currency: 'VND'; status: 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'refund_pending' | 'refunded'; settledAt: string | null } | null;
-  dispute: { dispute_id: string; reason: string; evidence: string; sellerResponse: string | null; status: 'open' | 'accepted' | 'rejected'; resolution: string | null; resolvedAt: string | null; createdAt: string } | null;
+  dispute: { dispute_id: string; reason: string; evidence: string; sellerResponse: string | null; status: 'open' | 'accepted' | 'rejected'; resolution: string | null; resolvedAt: string | null; createdAt: string; attachments: DisputeAttachment[] } | null;
 }
 export interface OrderFilters { page?: number; limit?: number; side?: 'buyer' | 'seller'; status?: OrderStatus }

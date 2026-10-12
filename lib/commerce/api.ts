@@ -37,3 +37,6 @@ export async function actOnOrder(id: string, action: OrderAction, manage: boolea
 export async function downloadOrder(id: string, signal?: AbortSignal) {
   return (await apiClient.get<Blob>(`/orders/me/${idPath(id)}/file`, { responseType: 'blob', signal })).data;
 }
+export async function downloadDisputeEvidence(orderId: string, attachmentId: string, signal?: AbortSignal) {
+  return (await apiClient.get<Blob>(`/orders/${idPath(orderId)}/dispute/evidence/${idPath(attachmentId)}`, { responseType: 'blob', signal })).data;
+}

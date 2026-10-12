@@ -94,6 +94,7 @@ test('refund_pending rendering explains the losing purchase and omits ticket dow
     '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
     './shared': { Failure: () => null },
+    './DisputeAttachments': { DisputeAttachments: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
   assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
@@ -111,8 +112,37 @@ test('dispute evidence is displayed as escaped text and seller response form fol
     '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
     './shared': { Failure: () => null },
+    './DisputeAttachments': { DisputeAttachments: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);
   assert.match(html, /Gửi phản hồi/); assert.doesNotMatch(html, /Lưu quyết định|Tải vé qua kết nối xác thực/);
+});
+
+
+test('dispute attachment download uses authenticated blob API, encoded IDs and cancellation', async () => {
+  const calls = []; const signal = new AbortController().signal;
+  const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+  const api = load('lib/commerce/api.ts', {
+    '@/lib/auth/session': { apiClient: { get: async (...args) => { calls.push(args); return { data: blob }; } } },
+    '@/lib/http/axios-client': { createApiClient: () => ({}) },
+    '@/lib/http/http-errors': { AppApiError: Error },
+  });
+  assert.equal(await api.downloadDisputeEvidence('order/1', 'file/1', signal), blob);
+  assert.equal(calls[0][0], '/orders/order%2F1/dispute/evidence/file%2F1');
+  assert.equal(calls[0][1].responseType, 'blob');
+  assert.equal(calls[0][1].signal, signal);
+});
+
+test('attachment list renders both parties and metadata without exposing remote file URLs', () => {
+  const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
+  const { DisputeAttachments } = load('components/commerce/DisputeAttachments.tsx', {
+    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules, './shared': { Failure: () => null },
+  });
+  const attachment = { id: 'file1', uploadedBy: '<seller>', side: 'seller', mimetype: 'application/pdf', size: 1024, createdAt: '2026-10-12T00:00:00Z', downloadUrl: 'https://external.test/private.pdf' };
+  const html = renderToStaticMarkup(React.createElement(DisputeAttachments, { orderId: 'order', attachments: [attachment, { ...attachment, id: 'file2', side: 'buyer' }] }));
+  assert.match(html, /Người bán/); assert.match(html, /Người mua/);
+  assert.match(html, /application\/pdf/); assert.match(html, /1\.024 byte/);
+  assert.match(html, /&lt;seller&gt;/); assert.doesNotMatch(html, /external.test|<object|<img/);
+  assert.match(renderToStaticMarkup(React.createElement(DisputeAttachments, { orderId: 'order', attachments: [] })), /Chưa có file bằng chứng/);
 });
