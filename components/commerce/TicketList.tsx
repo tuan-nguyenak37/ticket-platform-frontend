@@ -31,7 +31,7 @@ export function TicketList({ mine = false, eventId }: { mine?: boolean; eventId?
       catch { setStorageError(new Error('Trình duyệt không cho lưu mã giao dịch. Hãy cho phép lưu trữ phiên trước khi tạo đơn để có thể thử lại an toàn.')); return; }
       const order = await purchase.mutateAsync({ id: selected.ticket_id, key });
       clearCheckout(sessionStorage, actor, selected.ticket_id);
-      router.push(`/dashboard/orders/${encodeURIComponent(order.order_id)}`);
+      router.push(`/dashboard/orders/${encodeURIComponent(order.order_id)}/checkout`);
     } catch { await query.refetch(); }
     finally { lock.current = false; }
   }

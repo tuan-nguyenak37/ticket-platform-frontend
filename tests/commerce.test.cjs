@@ -95,7 +95,7 @@ test('refund_pending rendering explains the losing purchase and omits ticket dow
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './CardCheckout': { CardCheckout: () => null }, '@/lib/commerce/payment': {},
+    './PaymentHistory': { PaymentHistory: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
   assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
@@ -114,7 +114,7 @@ test('dispute evidence is displayed as escaped text and seller response form fol
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './CardCheckout': { CardCheckout: () => null }, '@/lib/commerce/payment': {},
+    './PaymentHistory': { PaymentHistory: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);
@@ -173,22 +173,17 @@ test('user API respects self/admin paths, exact fields and untrimmed passwords',
 });
 
 
-test('demo card payment reconciles retries and preserves server refund result', async () => {
-  const pending = { ...baseOrder, status: 'pending_payment', payment: null };
-  let current = pending; const calls = [];
-  const payment = load('lib/commerce/payment.ts', { './api': {
-    getOrder: async () => current,
-    actOnOrder: async (id, action, manage) => {
-      calls.push({ id, action, manage });
-      if (action.path === 'payment') return { ...pending, payment: { status: 'pending' } };
-      return { ...pending, status: 'refund_pending', payment: { status: 'refund_pending' } };
-    },
-  } });
-  assert.equal((await payment.payWithDemoCard('order')).status, 'refund_pending');
-  assert.deepEqual(calls.map(call => call.action.path), ['payment', 'payment/mock-result']);
-  assert.equal(JSON.stringify(calls[1].action.body), '{"result":"success"}');
-  current = { ...pending, status: 'paid', payment: { status: 'succeeded' } }; calls.length = 0;
-  assert.equal((await payment.payWithDemoCard('order')).status, 'paid'); assert.equal(calls.length, 0);
-  current = { ...pending, payment: { status: 'pending' } };
-  await payment.payWithDemoCard('order'); assert.equal(calls.length, 1); assert.equal(calls[0].action.path, 'payment/mock-result');
+test('card confirmation sends the demo DTO to the current payment endpoint', async () => {
+  const calls = []; const result = { success: true, data: { status: 'refund_pending' } };
+  const api = load('lib/commerce/payment.ts', { '@/lib/auth/session': { apiClient: { post: async (...args) => { calls.push(args); return { data: result }; } } }, '@/lib/http/http-errors': { AppApiError: Error } });
+  await api.startPayment('order', 'attempt-key');
+  assert.equal(calls[0][0], '/orders/me/order/payments');
+  assert.equal(calls[0][1], undefined);
+  assert.equal(calls[0][2].headers['Idempotency-Key'], 'attempt-key');
+  const card = { cardNumber: '4242424242424242', holderName: 'DEMO BUYER', expiryMonth: 12, expiryYear: 2035, cvv: '123' };
+  assert.equal((await api.confirmPayment('order', 'payment', card)).status, 'refund_pending');
+  assert.equal(calls[1][0], '/orders/me/order/payments/payment/confirm');
+  assert.equal(calls[1][1], card);
+  await api.cancelPayment('order', 'payment');
+  assert.equal(calls[2][0], '/orders/me/order/payments/payment/cancel');
 });

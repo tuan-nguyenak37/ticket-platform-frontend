@@ -97,6 +97,14 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - `/dashboard/profile`: GET/PATCH /users/me và PATCH /users/me/password; chỉ sửa fullName. Đổi mật khẩu thành công xóa phiên và yêu cầu đăng nhập lại; không trim mật khẩu.
 - Không có thao tác đổi role, email, reset mật khẩu người khác hoặc xóa tài khoản. Chưa kiểm chứng runtime các thao tác ghi bằng tài khoản thật trong lần tích hợp này.
 
-## Thanh toán bằng thẻ thử nghiệm
+## Thanh toán thẻ demo mới (13/10/2026)
 
-Chi tiết đơn mua có giao diện thẻ, thông tin đơn, tổng tiền và nút Thanh toán. Dùng thẻ thử nghiệm điền sẵn; không gửi/lưu số thẻ hoặc CVV. Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true trên frontend và PAYMENT_MOCK_ENABLED=true ở backend development/test. Đọc lại đơn trước khi gọi payment, sau đó mock-result với result=success; kết quả hiển thị theo response, kể cả refund_pending. Retry sau mất kết nối đối chiếu đơn trước khi gửi tiếp. Không hỗ trợ trừ tiền thật. Chưa kiểm thử runtime với backend trong lần cập nhật giao diện này.
+- `/dashboard/orders/[orderId]/checkout`: trang riêng cho người mua; form chỉ chấp nhận hai thẻ demo trong tài liệu backend. Tạo đơn chuyển sang checkout; chi tiết đơn có liên kết tiếp tục thanh toán.
+- POST /orders/me/:id/payments không body, có Idempotency-Key riêng theo buyer/order. POST /payments/:paymentId/confirm gửi cardNumber/holderName/expiryMonth/expiryYear/cvv; không gửi result hoặc amount. Đã bỏ luồng mock-result cũ (410).
+- Số thẻ/CVV chỉ dùng trong form và request xác nhận, không lưu storage hoặc mutation cache. CVV xóa sau mỗi lần gửi. Key của lần thử giữ khi lỗi mạng; sau kết quả cuối/hủy mới xóa để lần thử tiếp theo sinh key mới. Reload đối chiếu lịch sử để tìm payment pending, không tạo trùng.
+- Hủy lần thanh toán không hủy đơn. Failed/cancelled có thể thử lại trên cùng đơn còn hạn; không gia hạn. Refund_pending không cấp file. Mọi kết quả lấy từ response API, không suy luận HTTP 200 là thanh toán thành công.
+- Lịch sử từ GET /orders/me/:id/payments; biên nhận từ GET /orders/me/:id/receipt sau capture, kể cả sau hoàn tiền. Biên nhận thử nghiệm, không phải hóa đơn thuế. Không export CSV.
+- Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true ở frontend; backend development/test phải có PAYMENT_MOCK_ENABLED=true, Redis và schema payment-card-demo.sql. Không thay backend hoặc chạy migration trong đợt này.
+- 429 đọc Retry-After và khóa thao tác trong thời gian chờ. Poll đơn tối đa 60 lần/5 giây, dừng khi lỗi, hết hạn, kết thúc hoặc rời trang.
+- Phạm vi chỉ người mua. Tài khoản nhận tiền và API quản trị thanh toán mới chưa tích hợp; các nút quản trị hoàn tiền/chi trả cũ vẫn cần cập nhật key/reason ở đợt tiếp theo.
+- Không chạy test hoặc giao dịch runtime theo yêu cầu. Đã cập nhật test hợp đồng API để thay test endpoint cũ nhưng chưa chạy.

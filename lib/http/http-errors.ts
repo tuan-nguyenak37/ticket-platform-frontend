@@ -7,6 +7,7 @@ export interface NestErrorPayload {
 }
 
 export class AppApiError extends Error {
+  retryAfterSeconds?: number;
   statusCode: number;
   error?: string;
   rawDetails?: string | string[];
@@ -56,7 +57,14 @@ export function formatHttpError(error: unknown): AppApiError {
       formattedMessage = response.statusText;
     }
 
-    return new AppApiError(formattedMessage, statusCode, errorType, message);
+    const failure = new AppApiError(formattedMessage, statusCode, errorType, message);
+    const retryAfter = response.headers?.['retry-after'];
+    if (retryAfter != null) {
+      const seconds = Number(retryAfter);
+      const delay = Number.isFinite(seconds) ? seconds : (Date.parse(String(retryAfter)) - Date.now()) / 1000;
+      if (Number.isFinite(delay)) failure.retryAfterSeconds = Math.max(0, Math.ceil(delay));
+    }
+    return failure;
   }
 
   if (error instanceof Error) {

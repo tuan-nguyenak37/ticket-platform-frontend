@@ -12,6 +12,7 @@ export interface MyTicket extends Ticket {
 export interface TicketFilters { page?: number; limit?: number; q?: string; eventId?: string; categoryId?: string; ticketTier?: string; minPrice?: number; maxPrice?: number; sort?: 'newest' | 'price_asc' | 'price_desc' | 'event_soonest'; status?: TicketStatus }
 export type OrderStatus = 'pending_payment' | 'cancelled' | 'expired' | 'paid' | 'delivered' | 'completed' | 'disputed' | 'refund_pending' | 'refunded';
 export interface Order {
+  feeBasisPoints: number; platformFee: string; sellerNetAmount: string;
   order_id: string; ticketId: string; buyerId: string; sellerId: string; amount: string; currency: 'VND'; status: OrderStatus;
   ticket: { eventName: string; ticketTier: string; seatInfo: string | null; eventEndTime: string };
   expiresAt: string; paidAt: string | null; deliveredAt: string | null; disputeUntil: string | null; reason: string | null;
