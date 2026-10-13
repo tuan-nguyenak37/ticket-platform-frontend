@@ -1,12 +1,12 @@
 import type { OrderDetail } from './types';
 
-export interface DemoCard { cardNumber: string; holderName: string; expiryMonth: number; expiryYear: number; cvv: string }
+export interface DemoCard { cardNumber: string; holderName: string; expiryMonth?: number; expiryYear?: number; cvv?: string }
 export interface PaymentAttempt {
   payment_id: string; orderId: string; provider: 'mock'; attemptNumber: number;
   amount: string; currency: 'VND'; status: 'pending' | 'succeeded' | 'failed' | 'cancelled' | 'refund_pending' | 'refunded';
   receivedResult: 'success' | 'failed' | 'cancelled' | null; failureCode: string | null;
   createdAt: string; settledAt: string | null;
-  card?: { holderName: string; brand: string; last4: string; expiryMonth: number; expiryYear: number } | null;
+  card?: { holderName: string; brand: string; last4: string; expiryMonth: number | null; expiryYear: number | null } | null;
 }
 export interface PaymentHistory {
   order: OrderDetail; isMock: true; payments: PaymentAttempt[];

@@ -15,7 +15,7 @@ export interface Order {
   feeBasisPoints: number; platformFee: string; sellerNetAmount: string;
   order_id: string; ticketId: string; buyerId: string; sellerId: string; amount: string; currency: 'VND'; status: OrderStatus;
   ticket: { eventName: string; ticketTier: string; seatInfo: string | null; eventEndTime: string };
-  expiresAt: string; paidAt: string | null; deliveredAt: string | null; disputeUntil: string | null; reason: string | null;
+  expiresAt: string | null; paidAt: string | null; deliveredAt: string | null; disputeUntil: string | null; reason: string | null;
   payoutStatus: 'none' | 'pending' | 'ready' | 'paid' | 'blocked'; createdAt: string; updatedAt: string;
 }
 export interface DisputeAttachment {

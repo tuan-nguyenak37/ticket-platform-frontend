@@ -11,7 +11,7 @@ export function orderPermissions(order: OrderDetail, actor: string | undefined, 
   const manager = Boolean(manage && actor && actor !== order.buyerId && actor !== order.sellerId);
   return {
     cancel: buyer && order.status === 'pending_payment',
-    pay: buyer && order.status === 'pending_payment' && new Date(order.expiresAt).getTime() > now,
+    pay: buyer && order.status === 'pending_payment',
     download: buyer && ['paid', 'delivered', 'disputed', 'completed'].includes(order.status),
     dispute: buyer && ['paid', 'delivered'].includes(order.status) && !order.dispute && Boolean(order.disputeUntil && new Date(order.disputeUntil).getTime() > now),
     reply: seller && order.status === 'disputed' && order.dispute?.status === 'open' && !order.dispute.sellerResponse,

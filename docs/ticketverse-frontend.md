@@ -51,7 +51,7 @@ Build hiện dùng next/font/google (Geist và Geist Mono), cần kết nối Go
 - Duyệt gửi checkVersion hiện tại, selectedCodeId thuộc codes hiện tại; nhiều mã phải chọn. Cảnh báo cần note; reject cần reason. Không cho người đăng tự duyệt/từ chối. Xung đột 409 tải lại chi tiết và giải thích trạng thái/phiên bản đổi.
 - **Đối chiếu runtime/controller:** PATCH review trả `TicketResponseDto.from`, không có event/check/review/fileUrl. Sau quyết định chỉ invalidate/refetch GET detail; không ghi DTO rút gọn vào cache chi tiết.
 - Mỗi lần tạo đơn mới có UUID Idempotency-Key; sessionStorage lưu theo buyer/ticket trước request. Retry và reload dùng key cũ đến khi nhận response thành công. Lần mua mới sau kết quả đã xác nhận dùng key mới. Nếu storage bị chặn, không gửi đơn vì không đảm bảo retry qua reload. Không lưu token/password vào storage.
-- Tạo đơn không giữ vé. Đơn pending tự đọc lại tối đa 60 lần, 5 giây/lần; không tự đánh dấu trả tiền, hết hạn hay cấp vé dựa vào đồng hồ frontend. Backend quyết định. `refund_pending` không có quyền tải file và không được hiển thị như đã hoàn tiền.
+- Tạo đơn không giữ vé. Đơn không tự tải lại định kỳ; không tự đánh dấu trả tiền, hết hạn hay cấp vé dựa vào đồng hồ frontend. Backend quyết định. `refund_pending` không có quyền tải file và không được hiển thị như đã hoàn tiền.
 - Bằng chứng văn bản được hiển thị nguyên văn, không biến URL người dùng nhập thành liên kết. Danh sách dispute.attachments hiển thị bên gửi, người gửi, MIME, dung lượng và thời gian; xem ảnh/PDF và tải qua API có xác thực. Đóng/chuyển bằng chứng hoặc rời trang hủy request và thu hồi object URL. Giao diện upload bằng chứng chưa triển khai. Seller chỉ phản hồi một lần; manager thuộc giao dịch không giải quyết/hoàn tiền/chi trả.
 - PDF quản trị và file đơn mua dùng Axios blob có xác thực. Không dùng fileUrl làm URL static. Object URL thu hồi khi unmount hoặc sau download; lỗi JSON của endpoint blob được giải mã để giữ nguyên HTTP status và thông báo.
 - Nút gửi dùng pending state + khóa tức thời chống double-click; mutation không tự retry. Các thao tác lỗi hiển thị thật, không fallback mock. Các module mock mua vé cũ đã được gỡ khỏi repository.
@@ -99,10 +99,10 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 
 ## Thanh toán thẻ demo mới (13/10/2026)
 
-- `/thanh-toan/[orderId]`: trang riêng cho người mua; form chỉ chấp nhận hai thẻ demo trong tài liệu backend. Tạo đơn chuyển sang checkout; chi tiết đơn có liên kết tiếp tục thanh toán.
+- `/thanh-toan/[orderId]`: trang riêng cho người mua; form nhận số thẻ không rỗng tối đa 64 ký tự; không còn danh sách hai thẻ cố định theo cập nhật backend 13/10. Tạo đơn chuyển sang checkout; chi tiết đơn có liên kết tiếp tục thanh toán.
 - POST /orders/me/:id/payments không body, có Idempotency-Key riêng theo buyer/order. POST /payments/:paymentId/confirm gửi cardNumber/holderName/expiryMonth/expiryYear/cvv; không gửi result hoặc amount. Đã bỏ luồng mock-result cũ (410).
 - Số thẻ/CVV chỉ dùng trong form và request xác nhận, không lưu storage hoặc mutation cache. CVV xóa sau mỗi lần gửi. Key của lần thử giữ khi lỗi mạng; sau kết quả cuối/hủy mới xóa để lần thử tiếp theo sinh key mới. Reload đối chiếu lịch sử để tìm payment pending, không tạo trùng.
-- Hủy lần thanh toán không hủy đơn. Failed/cancelled có thể thử lại trên cùng đơn còn hạn; không gia hạn. Refund_pending không cấp file. Mọi kết quả lấy từ response API, không suy luận HTTP 200 là thanh toán thành công.
+- Hủy lần thanh toán không hủy đơn. Failed/cancelled có thể thử lại trên cùng đơn pending; không có hạn thanh toán. Refund_pending không cấp file. Mọi kết quả lấy từ response API, không suy luận HTTP 200 là thanh toán thành công.
 - Lịch sử từ GET /orders/me/:id/payments; biên nhận từ GET /orders/me/:id/receipt sau capture, kể cả sau hoàn tiền. Biên nhận thử nghiệm, không phải hóa đơn thuế. Không export CSV.
 - Cần NEXT_PUBLIC_PAYMENT_MOCK_ENABLED=true ở frontend; backend development/test phải có PAYMENT_MOCK_ENABLED=true, Redis và schema payment-card-demo.sql. Không thay backend hoặc chạy migration trong đợt này.
 - 429 đọc Retry-After và khóa thao tác trong thời gian chờ. Checkout và chi tiết đơn không polling, không tự refetch khi focus/reconnect. Đọc lại khi mở trang, người dùng làm mới hoặc thực hiện thao tác; bộ đếm thời gian chỉ chạy tại trình duyệt.
@@ -118,3 +118,5 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - Hoàn tiền/chi trả dùng API mới với reason và Idempotency-Key. Key/lý do giữ trong sessionStorage theo actor/order/kind để gửi lại sau mất phản hồi hoặc reload; số tiền lấy từ đơn. Không cho quản trị tự xử lý đơn mình tham gia. Backend quyết định điều kiện tài khoản nhận tiền, trạng thái người bán/sự kiện và hạn tranh chấp.
 - Các thao tác ghi chống gửi lặp, xử lý 429 theo Retry-After, làm mới đơn/lịch sử sau xử lý. Cờ demo tiếp tục bắt buộc, không sửa cấu hình backend.
 - Không chạy test hay giao dịch runtime theo yêu cầu; cần kiểm chứng tích hợp với schema/Redis/backend đã cập nhật.
+
+Cập nhật bỏ timeout: expiresAt nullable, frontend bỏ mọi điều kiện thời gian và đếm ngược thanh toán. Giữ expired cho đơn lịch sử, không tự mở lại. Tháng/năm thẻ và CVV tùy chọn theo DTO mới, không kiểm tra ngày thẻ tương lai. Hạn tranh chấp không đổi. Không sửa backend hoặc chạy migration; không chạy test theo yêu cầu.
