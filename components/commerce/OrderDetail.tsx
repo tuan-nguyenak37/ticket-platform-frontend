@@ -16,6 +16,7 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
   const actor = useAuthStore(s => s.user?.user_id); const client = useQueryClient();
   const [now, setNow] = useState(0); const [error, setError] = useState<unknown>(null); const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false); const lock = useRef(false);
+  const [preview, setPreview] = useState<{ url: string; mime: string } | null>(null);
   const urls = useRef(new Set<string>()); const timers = useRef(new Set<ReturnType<typeof setTimeout>>()); const abort = useRef<AbortController | null>(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -36,20 +37,28 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
     } catch (failure) { setError(failure); }
     finally { await reconcile(); lock.current = false; setBusy(false); }
   }
-  async function download() {
+  function closePreview() {
+    if (preview) { URL.revokeObjectURL(preview.url); urls.current.delete(preview.url); }
+    setPreview(null);
+  }
+  async function download(view = false) {
     if (lock.current) return; lock.current = true; setBusy(true); setError(null); abort.current = new AbortController();
     try {
       const blob = await downloadOrder(id, abort.current.signal);
       if (abort.current.signal.aborted) return;
+      const mime = blob.type.split(';')[0].toLowerCase();
+      if (view && !['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mime)) {
+        throw new Error('Trình duyệt không hỗ trợ xem định dạng vé này. Vui lòng chọn Tải vé.');
+      }
       const url = URL.createObjectURL(blob); urls.current.add(url);
+      if (view) { closePreview(); setPreview({ url, mime }); return; }
       const link = document.createElement('a'); link.href = url;
-      const mime = blob.type.split(';')[0];
       const extension = ({ 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' } as Record<string, string>)[mime] ?? 'bin';
       link.download = `ticket-${id}.${extension}`; link.click();
       const timer = setTimeout(() => { URL.revokeObjectURL(url); urls.current.delete(url); timers.current.delete(timer); }, 30000); timers.current.add(timer);
       setMessage('Đã gửi file vé đến trình duyệt. Bạn có thể kiểm tra trong mục tải xuống.');
     } catch (failure) { if (!abort.current?.signal.aborted) setError(failure); }
-    finally { await reconcile(); lock.current = false; setBusy(false); }
+    finally { if (!abort.current?.signal.aborted) await reconcile(); lock.current = false; setBusy(false); }
   }
   function formAction(e: FormEvent<HTMLFormElement>, kind: 'dispute' | 'reply' | 'resolve') {
     e.preventDefault(); const data = new FormData(e.currentTarget);
@@ -68,12 +77,23 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
 
         {order.status === 'refund_pending' && <p role="status" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">Chờ hoàn tiền (refund_pending). Thanh toán đã được ghi nhận nhưng vé không thể cấp hoặc đơn được hoàn theo xử lý tranh chấp / sự kiện. Nếu người khác đã mua vé trước, bạn không được tải vé này. Chưa có xác nhận hoàn tiền.</p>}
         {manage && (actor === order.buyerId || actor === order.sellerId) && <p role="alert">Bạn là một bên giao dịch, không được giải quyết tranh chấp, hoàn tiền hoặc chi trả đơn này.</p>}
-        <div className="flex flex-wrap gap-3">{permissions.download && <button className="tv-button tv-primary" disabled={disabled} onClick={() => void download()}>Tải vé qua kết nối xác thực</button>}{permissions.cancel && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'cancel' })}>Hủy đơn chờ thanh toán</button>}</div>
+        <div className="flex flex-wrap gap-3">{permissions.cancel && <button className="tv-button" disabled={disabled} onClick={() => void act({ path: 'cancel' })}>Hủy đơn chờ thanh toán</button>}</div>
       </section>
+      {permissions.download && !query.isError && <section className="tv-panel space-y-4">
+        <div><h2 className="text-xl font-semibold">Vé của bạn</h2><p className="mt-2 text-sm opacity-70">Xem vé ngay tại đây hoặc tải về để sử dụng khi đến sự kiện.</p></div>
+        <div className="flex flex-wrap gap-3"><button className="tv-button tv-primary" disabled={disabled} aria-expanded={Boolean(preview)} aria-controls="order-ticket-preview" onClick={() => preview ? closePreview() : void download(true)}>{preview ? 'Đóng vé' : 'Xem vé trực tuyến'}</button><button className="tv-button" disabled={disabled} onClick={() => void download()}>Tải vé</button></div>
+        {busy && <p role="status" className="text-sm">Đang xử lý yêu cầu…</p>}
+        {preview && <div id="order-ticket-preview" className="overflow-hidden rounded-xl border border-current/15">
+          {preview.mime === 'application/pdf' ? <object data={preview.url} type="application/pdf" aria-label="Vé của bạn" className="h-[70vh] min-h-80 w-full bg-white"><p className="p-5 text-slate-800">Trình duyệt không hỗ trợ xem PDF trực tuyến. Bạn có thể dùng nút Tải vé phía trên.</p></object> : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview.url} alt={`Vé ${order.ticket.eventName}`} className="max-h-[70vh] w-full bg-white object-contain" />
+          )}
+        </div>}
+      </section>}
       {permissions.pay && <Link className="tv-button tv-primary" href={`/thanh-toan/${encodeURIComponent(id)}`}>Tiếp tục thanh toán</Link>}
       <PaymentHistory id={id} manage={manage} />
       {(manage || actor === order.sellerId) && <section className="tv-panel space-y-3"><h2 className="font-bold">Doanh thu bán vé</h2><dl className="grid gap-3 text-sm sm:grid-cols-3"><div><dt>Giá bán</dt><dd>{money(order.amount)}</dd></div><div><dt>Phí nền tảng ({order.feeBasisPoints / 100}%)</dt><dd>{money(order.platformFee)}</dd></div><div><dt>Người bán thực nhận</dt><dd className="font-bold">{money(order.sellerNetAmount)}</dd></div></dl>{!manage && <Link href="/tai-khoan" className="inline-block text-sm underline">Thiết lập tài khoản nhận tiền</Link>}</section>}
-      {!manage && actor === order.buyerId && ['paid', 'delivered', 'completed'].includes(order.status) && <section role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6"><h2 className="text-xl font-semibold text-emerald-300">Thanh toán đã được xác nhận</h2><p className="mt-2 text-sm">Vé của bạn đã sẵn sàng. Bạn có thể tải vé trong đơn hàng này.</p></section>}
+      {!manage && actor === order.buyerId && ['paid', 'delivered', 'completed'].includes(order.status) && <section role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-6"><h2 className="text-xl font-semibold text-emerald-300">Thanh toán đã được xác nhận</h2><p className="mt-2 text-sm">Vé của bạn đã sẵn sàng. Bạn có thể xem trực tuyến hoặc tải vé trong đơn hàng này.</p></section>}
       {demoEnabled && permissions.refund && <TransferForm key={`${id}:refund`} id={id} kind="refund" amount={order.amount} disabled={disabled} />}
       {demoEnabled && permissions.payout && <TransferForm key={`${id}:payout`} id={id} kind="payout" amount={order.sellerNetAmount} disabled={disabled} />}
       {!demoEnabled && permissions.pay && <p className="tv-panel">Thanh toán hiện chưa khả dụng. Vui lòng quay lại sau.</p>}

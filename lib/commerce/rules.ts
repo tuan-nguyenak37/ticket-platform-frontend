@@ -1,6 +1,6 @@
 import type { OrderDetail } from './types';
 export const ticketLabels = { pending_review: 'Chờ duyệt', rejected: 'Bị từ chối', available: 'Đang bán', holding: 'Đang giữ', sold: 'Đã bán', cancelled: 'Đã hủy', expired: 'Hết hạn' };
-export const orderLabels = { pending_payment: 'Chờ thanh toán', cancelled: 'Đã hủy', expired: 'Hết hạn', paid: 'Đã thanh toán, đã được cấp vé', delivered: 'Đã phục vụ file vé', completed: 'Hoàn tất', disputed: 'Đang tranh chấp', refund_pending: 'Chờ hoàn tiền', refunded: 'Đã hoàn tiền' };
+export const orderLabels = { pending_payment: 'Chờ thanh toán', cancelled: 'Đã hủy', expired: 'Hết hạn', paid: 'Đã thanh toán, đã được cấp vé', delivered: 'Đã mở vé', completed: 'Hoàn tất', disputed: 'Đang tranh chấp', refund_pending: 'Chờ hoàn tiền', refunded: 'Đã hoàn tiền' };
 export const payoutLabels = { none: 'Chưa phát sinh', pending: 'Chờ đủ điều kiện', ready: 'Sẵn sàng chi trả', paid: 'Đã chi trả', blocked: 'Tạm khóa' };
 export const checkLabels = { queued: 'Đang xếp hàng', processing: 'Đang xử lý OCR', completed: 'Đã hoàn tất đối chiếu', failed: 'Kiểm tra lỗi', skipped: 'Đã bỏ qua' };
 export const money = (value: number | string) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 2 }).format(Number(value));

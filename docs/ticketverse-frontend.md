@@ -120,3 +120,11 @@ Chi tiết đơn quản trị và đơn mua/bán dùng chung phần xem bằng c
 - Không chạy test hay giao dịch runtime theo yêu cầu; cần kiểm chứng tích hợp với schema/Redis/backend đã cập nhật.
 
 Cập nhật bỏ timeout: expiresAt nullable, frontend bỏ mọi điều kiện thời gian và đếm ngược thanh toán. Giữ expired cho đơn lịch sử, không tự mở lại. Tháng/năm thẻ và CVV tùy chọn theo DTO mới, không kiểm tra ngày thẻ tương lai. Hạn tranh chấp không đổi. Không sửa backend hoặc chạy migration; không chạy test theo yêu cầu.
+
+
+## Xác nhận mua hàng và xem vé (13/10/2026)
+
+- Checkout hiển thị lời cảm ơn, thông tin vé, số tiền và liên kết chi tiết đơn khi backend trả paid/delivered/completed. Refund_pending vẫn hiển thị chờ hoàn tiền.
+- Chi tiết đơn có Xem vé trực tuyến và Tải vé riêng, chỉ cho người mua đủ điều kiện. PDF/ảnh được đọc qua GET /orders/me/:id/file có xác thực; không dùng URL công khai. Preview chỉ tải khi bấm, thu hồi object URL khi đóng/rời trang và hủy request khi rời trang.
+- Đọc file làm mới trạng thái đơn vì backend ghi nhận delivered. Không polling. Nhãn Đã mở vé phản ánh thao tác đọc file, không xác nhận tải về thiết bị hay sử dụng tại sự kiện.
+- Không chạy test/giao dịch runtime theo yêu cầu; chưa kiểm chứng hiển thị PDF trên trình duyệt với backend đang chạy.

@@ -11,6 +11,7 @@ import { orderLabels } from '@/lib/commerce/rules';
 import { CardCheckout } from './CardCheckout';
 import { PaymentHistory, paymentLabels } from './PaymentHistory';
 import { Failure } from './shared';
+import { PurchaseSuccess } from './PurchaseSuccess';
 
 export function CheckoutPage({ id }: { id: string }) {
   const actor = useAuthStore(state => state.user?.user_id); const client = useQueryClient();
@@ -58,9 +59,10 @@ export function CheckoutPage({ id }: { id: string }) {
     }
   }
   const order = query.data; const buyer = Boolean(actor && order?.buyerId === actor);
+  const purchased = Boolean(order && ['paid', 'delivered', 'completed'].includes(order.status));
   const payable = order?.status === 'pending_payment';
   const disabled = busy || query.isFetching || query.isError || now < retryAt;
-  return <div className="space-y-5"><Link className="text-sm text-violet-300" href={`/don-hang/${encodeURIComponent(id)}`}>← Chi tiết đơn hàng</Link>{query.isPending && <p role="status">Đang tải đơn hàng…</p>}{query.isError && <Failure error={query.error} retry={() => void query.refetch()} />}{error != null && <Failure error={error} />}{message && <p role="status" className="tv-panel">{message}</p>}{now < retryAt && <p role="status">Vui lòng thử lại sau {Math.ceil((retryAt - now) / 1000)} giây.</p>}
-    {order && !query.isError && (!buyer ? <p role="alert" className="tv-panel">Chỉ người mua của đơn hàng được thanh toán.</p> : <>{payable && process.env.NEXT_PUBLIC_PAYMENT_MOCK_ENABLED === 'true' ? <><CardCheckout order={order} busy={disabled} onPay={card => operate(card)} />{order.payment?.status === 'pending' && <button className="tv-button" disabled={disabled} onClick={() => void operate()}>Hủy lần thanh toán này</button>}</> : <section className="tv-panel space-y-3"><h2 className="text-xl font-semibold">{order.status === 'pending_payment' ? 'Thanh toán chưa khả dụng' : orderLabels[order.status]}</h2>{order.status === 'refund_pending' && <p>Thanh toán đã ghi nhận nhưng vé không thể cấp. Bạn có thể theo dõi hoàn tiền trong đơn hàng.</p>}<Link className="tv-button tv-primary" href={`/don-hang/${encodeURIComponent(id)}`}>{['paid', 'delivered', 'completed'].includes(order.status) ? 'Xem và tải vé' : 'Xem đơn hàng'}</Link></section>}<PaymentHistory id={id} /></>)}
+  return <div className="space-y-5"><Link className="text-sm text-violet-300" href={`/don-hang/${encodeURIComponent(id)}`}>← Chi tiết đơn hàng</Link>{query.isPending && <p role="status">Đang tải đơn hàng…</p>}{query.isError && <Failure error={query.error} retry={() => void query.refetch()} />}{error != null && <Failure error={error} />}{message && !purchased && <p role="status" className="tv-panel">{message}</p>}{now < retryAt && <p role="status">Vui lòng thử lại sau {Math.ceil((retryAt - now) / 1000)} giây.</p>}
+    {order && !query.isError && (!buyer ? <p role="alert" className="tv-panel">Chỉ người mua của đơn hàng được thanh toán.</p> : <>{purchased ? <PurchaseSuccess order={order} /> : payable && process.env.NEXT_PUBLIC_PAYMENT_MOCK_ENABLED === 'true' ? <><CardCheckout order={order} busy={disabled} onPay={card => operate(card)} />{order.payment?.status === 'pending' && <button className="tv-button" disabled={disabled} onClick={() => void operate()}>Hủy lần thanh toán này</button>}</> : <section className="tv-panel space-y-3"><h2 className="text-xl font-semibold">{order.status === 'pending_payment' ? 'Thanh toán chưa khả dụng' : orderLabels[order.status]}</h2>{order.status === 'refund_pending' && <p>Thanh toán đã ghi nhận nhưng vé không thể cấp. Bạn có thể theo dõi hoàn tiền trong đơn hàng.</p>}<Link className="tv-button tv-primary" href={`/don-hang/${encodeURIComponent(id)}`}>{['paid', 'delivered', 'completed'].includes(order.status) ? 'Xem và tải vé' : 'Xem đơn hàng'}</Link></section>}{!purchased && <PaymentHistory id={id} />}</>)}
   </div>;
 }
