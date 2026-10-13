@@ -95,7 +95,7 @@ test('refund_pending rendering explains the losing purchase and omits ticket dow
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
+    './DisputeDialog': { DisputeDialog: () => null }, './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
   assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
@@ -114,7 +114,7 @@ test('dispute evidence is displayed as escaped text and seller response form fol
     '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
     './shared': { Failure: () => null },
     './DisputeAttachments': { DisputeAttachments: () => null },
-    './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
+    './DisputeDialog': { DisputeDialog: () => null }, './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);

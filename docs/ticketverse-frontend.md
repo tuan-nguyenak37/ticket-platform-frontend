@@ -142,3 +142,12 @@ Cập nhật bỏ timeout: expiresAt nullable, frontend bỏ mọi điều kiệ
 - Đối chiếu `backend/docs/automatic-payouts.md`, `payment-card-demo.md`, RevenueListDto, PayoutAccountDto và OrderRevenueService. Hai docs và response hiện vẫn ghi isMock=true, tài khoản demo, không chuyển tiền ngân hàng thật. Chưa có hợp đồng API thanh toán/chi trả thật để tích hợp; frontend không thay thế phần này.
 - Chạy frontend bằng `npm run dev`, cấu hình API theo phần cấu hình hiện có; backend cần API, Redis và order/email worker theo docs riêng. Không sửa backend hoặc chạy migration.
 - Không chạy test theo yêu cầu trước đó. Chưa xác minh runtime: dữ liệu doanh thu với phiên đăng nhập thật, lưu tài khoản rồi worker chi trả, lỗi 401/403/429 thực tế, email, phân trang và giao diện trên thiết bị thật. Không thực hiện giao dịch ngân hàng.
+
+
+## Popup tranh chấp và gửi bằng chứng
+
+- Chi tiết đơn: nút Báo cáo tranh chấp mở dialog nhập reason/evidence và chọn nhiều file; tạo tranh chấp JSON trước rồi POST `/orders/me/:id/dispute/evidence` tuần tự, mỗi request một trường multipart `file`, không tự đặt boundary.
+- Người mua/người bán có thể mở Bổ sung bằng chứng khi tranh chấp đang mở; quản trị không upload thay các bên. JPEG/PNG/GIF/WebP/PDF tối đa 5 MB/file, 5 file mỗi bên. Backend có thể cấu hình giới hạn thấp hơn và kiểm tra chữ ký file. Video/SVG/HTML chưa có hỗ trợ API.
+- Hiển thị tiến trình và giữ các file chưa gửi nếu một request lỗi. Không tự retry upload vì API không có idempotency cho bằng chứng: yêu cầu người dùng kiểm tra danh sách đã lưu trước khi bổ sung, tải lại đơn sau lỗi để đối chiếu. File đã lưu không có endpoint xóa.
+- Dialog hỗ trợ Escape, focus và cuộn mobile; khóa gửi lặp/đóng khi đang gửi. Bằng chứng đã gửi tiếp tục xem/tải qua API có xác thực hiện có.
+- Không sửa backend; không chạy test theo yêu cầu trước đó. Chưa xác minh upload thực tế, MIME signature/giới hạn cấu hình, lỗi mạng giữa các file hoặc video (backend chưa hỗ trợ).

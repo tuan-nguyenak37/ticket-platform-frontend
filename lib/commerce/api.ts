@@ -40,3 +40,7 @@ export async function downloadOrder(id: string, signal?: AbortSignal) {
 export async function downloadDisputeEvidence(orderId: string, attachmentId: string, signal?: AbortSignal) {
   return (await apiClient.get<Blob>(`/orders/${idPath(orderId)}/dispute/evidence/${idPath(attachmentId)}`, { responseType: 'blob', signal })).data;
 }
+export async function uploadDisputeEvidence(orderId: string, file: File) {
+  const body = new FormData(); body.append('file', file);
+  return unwrap((await apiClient.post<ApiResponse<OrderDetail>>(`/orders/me/${idPath(orderId)}/dispute/evidence`, body)).data);
+}

@@ -6,6 +6,7 @@ import { actOnOrder, downloadOrder, getOrder, type OrderAction } from '@/lib/com
 import { dateTime, money, orderLabels, orderPermissions, payoutLabels } from '@/lib/commerce/rules';
 import { useAuthStore } from '@/lib/store/auth.store';
 import { Failure } from './shared';
+import { DisputeDialog } from './DisputeDialog';
 import { DisputeAttachments } from './DisputeAttachments';
 import { TransferForm } from './TransferForm';
 import { PaymentHistory } from './PaymentHistory';
@@ -16,6 +17,7 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
   const actor = useAuthStore(s => s.user?.user_id); const client = useQueryClient();
   const [now, setNow] = useState(0); const [error, setError] = useState<unknown>(null); const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false); const lock = useRef(false);
+  const [disputeOpen, setDisputeOpen] = useState(false);
   const [preview, setPreview] = useState<{ url: string; mime: string } | null>(null);
   const urls = useRef(new Set<string>()); const timers = useRef(new Set<ReturnType<typeof setTimeout>>()); const abort = useRef<AbortController | null>(null);
   useEffect(() => {
@@ -60,12 +62,11 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
     } catch (failure) { if (!abort.current?.signal.aborted) setError(failure); }
     finally { if (!abort.current?.signal.aborted) await reconcile(); lock.current = false; setBusy(false); }
   }
-  function formAction(e: FormEvent<HTMLFormElement>, kind: 'dispute' | 'reply' | 'resolve') {
+  function formAction(e: FormEvent<HTMLFormElement>, kind: 'reply' | 'resolve') {
     e.preventDefault(); const data = new FormData(e.currentTarget);
     const value = (name: string) => String(data.get(name) ?? '').trim();
-    const required = kind === 'dispute' ? ['reason', 'evidence'] : kind === 'reply' ? ['response'] : ['note'];
+    const required = kind === 'reply' ? ['response'] : ['note'];
     if (required.some(name => !value(name))) { setError(new Error('Nội dung không được chỉ có khoảng trắng.')); return; }
-    if (kind === 'dispute') void act({ path: 'dispute', body: { reason: value('reason'), evidence: value('evidence') } });
     if (kind === 'reply') void act({ path: 'dispute/reply', body: { response: value('response') } });
     if (kind === 'resolve') void act({ path: 'dispute/resolve', body: { decision: value('decision') as 'accept' | 'reject', note: value('note') } });
   }
@@ -99,7 +100,8 @@ export function OrderDetail({ id, manage = false }: { id: string; manage?: boole
       {!demoEnabled && permissions.pay && <p className="tv-panel">Thanh toán hiện chưa khả dụng. Vui lòng quay lại sau.</p>}
       {['cancelled', 'expired'].includes(order.status) && !manage && actor === order.buyerId && <p className="tv-panel">Lần mua này đã kết thúc. <Link className="underline" href="/tickets">Chọn vé và tạo lần mua mới</Link> để dùng mã giao dịch mới.</p>}
       {order.dispute && <section className="tv-panel space-y-4"><h2 className="font-bold">Tranh chấp · {({ open: 'Đang mở', accepted: 'Được chấp nhận', rejected: 'Bị bác bỏ' })[order.dispute.status]}</h2><p className="whitespace-pre-wrap break-words">Lý do: {order.dispute.reason}</p><p className="whitespace-pre-wrap break-words">Bằng chứng: {order.dispute.evidence}</p><p className="whitespace-pre-wrap break-words">Phản hồi người bán: {order.dispute.sellerResponse || 'Chưa phản hồi'}</p>{order.dispute.resolution && <p className="whitespace-pre-wrap break-words">Quyết định: {order.dispute.resolution} · {dateTime(order.dispute.resolvedAt)}</p>}<DisputeAttachments key={id} orderId={id} attachments={order.dispute.attachments ?? []} /></section>}
-      {permissions.dispute && <form className="tv-panel space-y-4" onSubmit={e => formAction(e, 'dispute')}><h2 className="font-bold">Gửi tranh chấp</h2><fieldset disabled={disabled} className="space-y-3"><label className="block">Lý do *<textarea name="reason" required maxLength={2000} rows={3} className="tv-input" /></label><label className="block">Bằng chứng dạng văn bản *<textarea name="evidence" required maxLength={5000} rows={5} className="tv-input" /></label><p className="text-sm opacity-70">Mỗi đơn một tranh chấp. Biểu mẫu này gửi bằng chứng văn bản; file đã gửi được hiển thị trong chi tiết tranh chấp.</p><button className="tv-button tv-primary">Gửi tranh chấp</button></fieldset></form>}
+      {(permissions.dispute || (!manage && (actor === order.buyerId || actor === order.sellerId) && order.status === 'disputed' && order.dispute?.status === 'open')) && <button className="tv-button" disabled={disabled} onClick={() => setDisputeOpen(true)}>{order.dispute ? 'Bổ sung bằng chứng' : 'Báo cáo tranh chấp'}</button>}
+      {disputeOpen && actor && <DisputeDialog order={order} actor={actor} onClose={() => { setDisputeOpen(false); void reconcile(); }} onUpdated={updated => { client.setQueryData(['commerce', 'order', manage, id], updated); void client.invalidateQueries({ queryKey: ['commerce', 'orders'] }); void client.invalidateQueries({ queryKey: ['commerce', 'revenue'] }); }} />}
       {permissions.reply && <form className="tv-panel space-y-4" onSubmit={e => formAction(e, 'reply')}><h2 className="font-bold">Phản hồi của người bán</h2><fieldset disabled={disabled}><label>Giải trình (chỉ gửi một lần) *<textarea name="response" required maxLength={5000} rows={5} className="tv-input" /></label><button className="tv-button mt-4">Gửi phản hồi</button></fieldset></form>}
       {permissions.resolve && <form className="tv-panel space-y-4" onSubmit={e => formAction(e, 'resolve')}><h2 className="font-bold">Giải quyết tranh chấp</h2><fieldset disabled={disabled} className="space-y-3"><label className="block">Quyết định<select name="decision" className="tv-input"><option value="accept">Chấp nhận và chuyển chờ hoàn tiền</option><option value="reject">Bác bỏ tranh chấp</option></select></label><label className="block">Ghi chú quyết định *<textarea name="note" required maxLength={2000} rows={4} className="tv-input" /></label><p>Quyết định đã lưu không thể ghi đè.</p><button className="tv-button tv-primary">Lưu quyết định</button></fieldset></form>}
     </>}
