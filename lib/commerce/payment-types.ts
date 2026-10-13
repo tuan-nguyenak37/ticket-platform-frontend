@@ -10,7 +10,7 @@ export interface PaymentAttempt {
 }
 export interface PaymentHistory {
   order: OrderDetail; isMock: true; payments: PaymentAttempt[];
-  transfers: { id: string; paymentId: string; kind: 'refund' | 'payout'; amount: string; currency: string; actorId: string | null; reason: string; legacy: boolean; recordedAt: string; bank?: { bankCode: string; accountName: string; last4: string } }[];
+  transfers: { id: string; paymentId: string; kind: 'refund' | 'payout'; amount: string; currency: string; actorId: string | null; initiatedBy: 'system' | 'manager' | 'unknown'; reason: string; legacy: boolean; recordedAt: string; bank?: { bankCode: string; accountName: string; last4: string } }[];
   events: { id: string; paymentId: string | null; kind: string; actorId: string | null; reason: string | null; createdAt: string }[];
 }
 export interface Receipt extends PaymentHistory { receiptId: string; notice: string }

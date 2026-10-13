@@ -6,7 +6,7 @@ import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { AppApiError } from '@/lib/http/http-errors';
 
 export function CommercePage({ title, children, manage = false }: { title: string; children: ReactNode; manage?: boolean }) {
-  return <div className={`commerce ${manage ? 'commerce-light' : 'mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'} space-y-6`}><nav className="flex flex-wrap gap-4 text-sm" aria-label="Giao dịch vé"><Link href="/tickets">Tìm vé</Link><Link href="/organizer/create">Đăng vé PDF</Link><Link href="/ve-cua-toi">Vé tôi đăng</Link><Link href="/don-hang">Đơn mua / bán</Link>{manage && <Link href="/moderator/orders">Quản trị đơn</Link>}</nav><h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>{children}</div>;
+  return <div className={`commerce ${manage ? 'commerce-light' : 'mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'} space-y-6`}><nav className="flex flex-wrap gap-4 text-sm" aria-label="Giao dịch vé"><Link href="/tickets">Tìm vé</Link><Link href="/organizer/create">Đăng vé PDF</Link><Link href="/ve-cua-toi">Vé tôi đăng</Link><Link href="/don-hang">Đơn mua / bán</Link><Link href="/doanh-thu">Doanh thu</Link>{manage && <Link href="/moderator/orders">Quản trị đơn</Link>}</nav><h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>{children}</div>;
 }
 export function ManagerGate({ children }: { children: ReactNode }) {
   const role = useAuthStore(s => s.user?.role);

@@ -128,3 +128,17 @@ Cập nhật bỏ timeout: expiresAt nullable, frontend bỏ mọi điều kiệ
 - Chi tiết đơn có Xem vé trực tuyến và Tải vé riêng, chỉ cho người mua đủ điều kiện. PDF/ảnh được đọc qua GET /orders/me/:id/file có xác thực; không dùng URL công khai. Preview chỉ tải khi bấm, thu hồi object URL khi đóng/rời trang và hủy request khi rời trang.
 - Đọc file làm mới trạng thái đơn vì backend ghi nhận delivered. Không polling. Nhãn Đã mở vé phản ánh thao tác đọc file, không xác nhận tải về thiết bị hay sử dụng tại sự kiện.
 - Không chạy test/giao dịch runtime theo yêu cầu; chưa kiểm chứng hiển thị PDF trên trình duyệt với backend đang chạy.
+
+
+## Doanh thu và chi trả tự động (13/10/2026)
+
+- Trang `/doanh-thu` nằm trong customer layout có RequireAuth; truy cập từ menu tài khoản hoặc thanh điều hướng giao dịch. Giữ React Query, Axios session/refresh-cookie và response envelope hiện có, không thêm cấu hình/token mới.
+- GET `/orders/me/revenue?page=1&limit=20&status=...` đọc summary, items và phân trang. Hiển thị đủ 7 revenueStatus từ API; summary lấy nguyên các nhóm tiền do backend trả và không cộng lại theo danh sách đã lọc. Phí và tiền bán sau phí dùng snapshot của đơn.
+- GET/PUT `/users/me/payout-account` dùng chung component với hồ sơ cá nhân. Chỉ cho DEMO_VCB/DEMO_TCB/DEMO_MB, tên trim 2–100 ký tự, số 9900 dài 10–16 chữ số. Số tài khoản thường chỉ hiển thị 4 số cuối; số đầy đủ chỉ xuất hiện trong form chỉnh sửa của chủ tài khoản. Không lưu số tài khoản vào localStorage/sessionStorage.
+- requiredAction=add_payout_account hiển thị lời nhắc thêm tài khoản, kể cả chưa có tiền chờ. Không chặn đăng vé nếu thiếu tài khoản. Không có ví/nút rút tiền hoặc gọi API chi trả quản trị trong trang doanh thu.
+- Lưu tài khoản chỉ xác nhận đã lưu, invalidate các truy vấn doanh thu để đọc trạng thái mới. Không xác nhận đã chi trả. Có làm mới thủ công, không polling/focus/reconnect refetch trên doanh thu. Request đọc có AbortSignal.
+- Lịch sử mở theo từng đơn dùng GET `/orders/me/:id/payments`, hỗ trợ initiatedBy=system/manager/unknown; tài khoản chuyển tiền trong lịch sử chỉ dùng dữ liệu đã che từ backend. Giao dịch legacy hiển thị thời điểm ghi nhận, không tự suy luận ngày chuyển tiền.
+- automaticPayoutsEnabled chỉ dùng thông báo khi cấu hình chưa bật; không suy luận worker khỏe hay đang chạy. Backend thường kiểm tra mỗi 15 giây nhưng không bảo đảm chi trả trong 15 giây. Frontend không gửi email hoặc khẳng định email đã tới hộp thư.
+- Đối chiếu `backend/docs/automatic-payouts.md`, `payment-card-demo.md`, RevenueListDto, PayoutAccountDto và OrderRevenueService. Hai docs và response hiện vẫn ghi isMock=true, tài khoản demo, không chuyển tiền ngân hàng thật. Chưa có hợp đồng API thanh toán/chi trả thật để tích hợp; frontend không thay thế phần này.
+- Chạy frontend bằng `npm run dev`, cấu hình API theo phần cấu hình hiện có; backend cần API, Redis và order/email worker theo docs riêng. Không sửa backend hoặc chạy migration.
+- Không chạy test theo yêu cầu trước đó. Chưa xác minh runtime: dữ liệu doanh thu với phiên đăng nhập thật, lưu tài khoản rồi worker chi trả, lỗi 401/403/429 thực tế, email, phân trang và giao diện trên thiết bị thật. Không thực hiện giao dịch ngân hàng.

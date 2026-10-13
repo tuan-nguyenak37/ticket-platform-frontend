@@ -16,7 +16,7 @@ export interface Order {
   order_id: string; ticketId: string; buyerId: string; sellerId: string; amount: string; currency: 'VND'; status: OrderStatus;
   ticket: { eventName: string; ticketTier: string; seatInfo: string | null; eventEndTime: string };
   expiresAt: string | null; paidAt: string | null; deliveredAt: string | null; disputeUntil: string | null; reason: string | null;
-  payoutStatus: 'none' | 'pending' | 'ready' | 'paid' | 'blocked'; createdAt: string; updatedAt: string;
+  payoutStatus: 'none' | 'pending' | 'awaiting_account' | 'ready' | 'paid' | 'blocked'; createdAt: string; updatedAt: string;
 }
 export interface DisputeAttachment {
   id: string; uploadedBy: string; side: 'buyer' | 'seller'; mimetype: string;
