@@ -1,13 +1,6 @@
-'use client';
-
 import type { ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
-import { AmbientGlow } from './AmbientGlow';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
-
 export function SiteShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  if (pathname === '/moderator' || pathname.startsWith('/moderator/')) return children;
-  return <><AmbientGlow /><Navbar /><main className="flex-1 relative z-10 flex flex-col">{children}</main><Footer /></>;
+  return <div className="tv-site flex min-h-screen flex-col"><a href="#main-content" className="tv-skip-link">Đến nội dung chính</a><Navbar /><main id="main-content" className="min-w-0 flex-1">{children}</main><Footer /></div>;
 }

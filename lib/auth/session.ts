@@ -1,18 +1,51 @@
 'use client';
 
 import axios, { type InternalAxiosRequestConfig } from 'axios';
-import { ENV } from '@/lib/env';
-import { createApiClient } from '@/lib/http/axios-client';
-import { AppApiError, formatHttpError } from '@/lib/http/http-errors';
-import type { AuthData, ApiResponse } from '@/lib/interface/authInterface';
-import type { User } from '@/lib/interface/userInterface';
-import { useAuthStore } from '@/lib/store/auth.store';
+import { ENV } from '@/config/env';
+import { createApiClient } from '@/lib/api/axios-client';
+import { AppApiError, formatHttpError } from '@/lib/api/http-errors';
+import type { AuthData, ApiResponse } from '@/lib/auth/types/authInterface';
+import type { User } from '@/lib/auth/types/userInterface';
+import { useAuthStore } from '@/lib/auth/auth.store';
 
 // Client riêng cho refresh/login/logout: không có interceptor tự refresh.
 const sessionHttp = createApiClient();
 let refreshPromise: Promise<AuthData> | null = null;
 let restorePromise: Promise<void> | null = null;
 let logoutPromise: Promise<void> | null = null;
+let loginPromise: Promise<AuthData> | null = null;
+let sessionChannel: BroadcastChannel | null = null;
+let authAttempt = 0;
+
+async function withCookieLock<T>(action: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== 'undefined' && navigator.locks) {
+    return navigator.locks.request('ticketverse-auth-cookie', action);
+  }
+  return action();
+}
+
+function notifyTabs(event: 'login' | 'logout') {
+  sessionChannel?.postMessage(event);
+}
+
+export function subscribeToSessionChanges() {
+  if (typeof BroadcastChannel === 'undefined') return () => {};
+  const channel = new BroadcastChannel('ticketverse-session');
+  sessionChannel = channel;
+  channel.onmessage = ({ data }: MessageEvent<unknown>) => {
+    if (data !== 'login' && data !== 'logout') return;
+    authAttempt += 1;
+    useAuthStore.getState().clearSession();
+    if (data === 'login') {
+      void Promise.allSettled([restorePromise, refreshPromise].filter(promise => promise !== null))
+        .then(() => restoreSession());
+    }
+  };
+  return () => {
+    if (sessionChannel === channel) sessionChannel = null;
+    channel.close();
+  };
+}
 
 function unwrap<T>(body: ApiResponse<T>): T {
   if (!body.success) throw new AppApiError(body.message, body.statusCode);
@@ -29,11 +62,16 @@ function refreshSession(): Promise<AuthData> {
   const revision = useAuthStore.getState().revision;
   refreshPromise = (async () => {
     try {
-      const response = await sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh');
+      const response = await withCookieLock(() => sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh'));
       const data = unwrap(response.data);
       if (sameSession(revision)) {
         const status = useAuthStore.getState().status;
-        useAuthStore.getState().setSession(data, status === 'authenticated' ? status : 'restoring');
+        const previousUser = useAuthStore.getState().user;
+        if (previousUser && previousUser.user_id !== data.user.user_id) {
+          useAuthStore.getState().setAuth(data);
+        } else {
+          useAuthStore.getState().setSession(data, status === 'authenticated' ? status : 'restoring');
+        }
       }
       return data;
     } catch (error) {
@@ -63,11 +101,22 @@ export function restoreSession(): Promise<void> {
     try {
       // Retry sau lỗi mạng ở /users/me dùng lại token vừa lấy, không refresh thừa.
       let token = useAuthStore.getState().accessToken;
+      const hadCachedToken = Boolean(token);
       if (!token) token = (await refreshSession()).accessToken;
       if (!sameSession(revision)) return;
-      const response = await sessionHttp.get<ApiResponse<User>>('/users/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      let response;
+      try {
+        response = await sessionHttp.get<ApiResponse<User>>('/users/me', {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+      } catch (error) {
+        if (!hadCachedToken || formatHttpError(error).statusCode !== 401 || !sameSession(revision)) throw error;
+        token = (await refreshSession()).accessToken;
+        if (!sameSession(revision)) return;
+        response = await sessionHttp.get<ApiResponse<User>>('/users/me', {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+      }
       if (sameSession(revision)) {
         useAuthStore.getState().setSession({ accessToken: token, user: unwrap(response.data) });
       }
@@ -85,57 +134,79 @@ export function restoreSession(): Promise<void> {
 }
 
 // Dùng cho form đăng nhập; refresh cookie được trình duyệt nhận từ Set-Cookie.
-export async function loginSession(credentials: { email: string; password: string }) {
-  if (logoutPromise) await logoutPromise;
-  if (restorePromise) await restorePromise;
-  if (refreshPromise) await refreshPromise.catch(() => undefined);
-  const revision = useAuthStore.getState().revision;
-  const response = await sessionHttp.post<ApiResponse<AuthData>>('/auth/login', credentials);
-  const data = unwrap(response.data);
-  if (sameSession(revision)) useAuthStore.getState().setAuth(data);
-  return data;
+export function loginSession(credentials: { email: string; password: string }): Promise<AuthData> {
+  if (loginPromise) return loginPromise;
+  const attempt = ++authAttempt;
+  const pendingLogout = logoutPromise;
+  loginPromise = (async () => {
+    if (pendingLogout) await pendingLogout;
+    if (restorePromise) await restorePromise;
+    if (refreshPromise) await refreshPromise.catch(() => undefined);
+    if (attempt !== authAttempt) throw new AppApiError('Yêu cầu đăng nhập đã bị hủy.', 401);
+    const revision = useAuthStore.getState().revision;
+    const response = await withCookieLock(() => sessionHttp.post<ApiResponse<AuthData>>('/auth/login', credentials));
+    const data = unwrap(response.data);
+    if (attempt !== authAttempt || !sameSession(revision)) throw new AppApiError('Phiên đăng nhập đã thay đổi. Vui lòng thử lại.', 401);
+    useAuthStore.getState().setAuth(data);
+    notifyTabs('login');
+    return data;
+  })().finally(() => { loginPromise = null; });
+  return loginPromise;
 }
 
-// Dùng cho form đăng ký; nếu backend trả về token sẽ tự động lưu phiên
-export async function registerSession(data: { email: string; password: string; fullName: string }) {
+export async function registerSession(data: { email: string; password: string; fullName: string }): Promise<User> {
   if (logoutPromise) await logoutPromise;
-  const response = await sessionHttp.post<ApiResponse<AuthData | User | { message: string }>>('/auth/register', data);
-  const result = unwrap(response.data);
-  if (result && typeof result === 'object' && 'accessToken' in result && (result as AuthData).accessToken) {
-    const revision = useAuthStore.getState().revision;
-    if (sameSession(revision)) useAuthStore.getState().setAuth(result as AuthData);
-  }
-  return result;
+  const response = await sessionHttp.post<ApiResponse<User>>('/auth/register', data);
+  return unwrap(response.data);
 }
 
 export function logoutSession(): Promise<void> {
   if (logoutPromise) return logoutPromise;
+  authAttempt += 1;
   let token = useAuthStore.getState().accessToken;
   const pendingRefresh = refreshPromise;
+  const pendingLogin = loginPromise;
   useAuthStore.getState().clearSession();
   logoutPromise = (async () => {
     try {
-      // Nếu refresh đang đổi cookie, đợi nó xong rồi mới yêu cầu BE xóa cookie.
+      if (pendingLogin) await pendingLogin.catch(() => undefined);
       if (pendingRefresh) token = (await pendingRefresh).accessToken;
-      if (!token) {
-        token = unwrap((await sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh')).data).accessToken;
-      }
-      try {
-        await sessionHttp.post('/auth/logout', undefined, { headers: { Authorization: `Bearer ${token}` } });
-      } catch (error) {
-        if (formatHttpError(error).statusCode !== 401) throw error;
-        token = unwrap((await sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh')).data).accessToken;
-        await sessionHttp.post('/auth/logout', undefined, { headers: { Authorization: `Bearer ${token}` } });
-      }
+      await withCookieLock(async () => {
+        if (!token || pendingLogin) {
+          token = unwrap((await sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh')).data).accessToken;
+        }
+        try {
+          await sessionHttp.post('/auth/logout', undefined, { headers: { Authorization: 'Bearer ' + token } });
+        } catch (error) {
+          if (formatHttpError(error).statusCode !== 401) throw error;
+          token = unwrap((await sessionHttp.post<ApiResponse<AuthData>>('/auth/refresh')).data).accessToken;
+          await sessionHttp.post('/auth/logout', undefined, { headers: { Authorization: 'Bearer ' + token } });
+        }
+      });
+      notifyTabs('logout');
     } catch (error) {
-      // 401: phiên đã vô hiệu. Lỗi mạng được trả về để UI không báo logout thành công giả.
       const failure = formatHttpError(error);
       if (failure.statusCode !== 401) throw failure;
+      notifyTabs('logout');
     } finally {
       logoutPromise = null;
     }
   })();
   return logoutPromise;
+}
+
+export async function refreshExpiringSession(): Promise<void> {
+  const { status, accessToken } = useAuthStore.getState();
+  if (status !== 'authenticated' || !accessToken) return;
+  try {
+    const encoded = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(encoded)) as { exp?: number };
+    if (typeof payload.exp === 'number' && payload.exp * 1000 - Date.now() < 60_000) {
+      await refreshSession();
+    }
+  } catch (error) {
+    if (error instanceof AppApiError) throw error;
+  }
 }
 
 type AuthRequest = InternalAxiosRequestConfig & { _retried?: boolean; _revision?: number };

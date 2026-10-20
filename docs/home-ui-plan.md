@@ -1,3 +1,5 @@
+> Ghi chú: tài liệu kế hoạch cũ chỉ để tham khảo. Cấu trúc và hành vi hiện tại xem [ticketverse-frontend.md](ticketverse-frontend.md) và [frontend-architecture.md](frontend-architecture.md).
+
 # Kế hoạch UI trang Home — Header và banner sự kiện ghim
 
 ## Nguồn và phạm vi
@@ -105,7 +107,7 @@ components/layout/
   SiteShell.tsx                     # Ghép navbar/footer một lần
 ```
 
-Hiện `app/page.tsx` và `app/(modules)/(homePage)/page.tsx` cùng biểu diễn `/`. Khi triển khai, chuyển nội dung group page thành `_components/HomePage.tsx`, giữ app/page.tsx làm entry duy nhất để tránh trùng route.
+Hiện chỉ có `app/page.tsx` biểu diễn `/`. Khi triển khai trang chủ, giữ `app/page.tsx` làm entry duy nhất; đặt UI riêng của trang vào `_components/HomePage.tsx` để tránh trùng route.
 
 Service public Home dùng `createApiClient()` không gắn token, không dùng authenticated `apiClient` hoặc import service của Moderator. Hook hiện tại của trang chi tiết đang import API từ Moderator; cần tránh sao chép kiểu phụ thuộc đó sang Home. Logic/type thực sự dùng chung public có thể đưa vào `lib/events` khi tách service public.
 

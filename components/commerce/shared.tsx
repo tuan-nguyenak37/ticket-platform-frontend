@@ -1,22 +1,34 @@
 'use client';
-import Link from 'next/link';
-import type { ReactNode } from 'react';
-import { useAuthStore } from '@/lib/store/auth.store';
-import { RequireAuth } from '@/lib/auth/RequireAuth';
-import { AppApiError } from '@/lib/http/http-errors';
 
-export function CommercePage({ title, children, manage = false }: { title: string; children: ReactNode; manage?: boolean }) {
-  return <div className={`commerce ${manage ? 'commerce-light' : 'mx-auto w-full max-w-6xl px-4 py-8 sm:px-6'} space-y-6`}><nav className="flex flex-wrap gap-4 text-sm" aria-label="Giao dịch vé"><Link href="/tickets">Tìm vé</Link><Link href="/organizer/create">Đăng vé PDF</Link><Link href="/ve-cua-toi">Vé tôi đăng</Link><Link href="/don-hang">Đơn mua / bán</Link><Link href="/doanh-thu">Doanh thu</Link>{manage && <Link href="/moderator/orders">Quản trị đơn</Link>}</nav><h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>{children}</div>;
+import { useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuthStore } from '@/lib/auth/auth.store';
+import { RequireAuth } from '@/lib/auth/RequireAuth';
+import { SiteShell } from '@/components/layout/SiteShell';
+import { CommercePage } from '@/components/ui/commerce';
+
+export function CustomerPage({ title, children, publicView = false }: { title: string; children: ReactNode; publicView?: boolean }) {
+  const revision = useAuthStore(state => state.revision);
+  const pathname = usePathname();
+  const content = <CommercePage title={title}><nav aria-label="Mua và quản lý vé" className="flex flex-wrap gap-2">{[
+    ['/account/tickets', 'Vé của tôi'], ['/account/orders', 'Đơn mua vé'], ['/account/resale', 'Giao dịch bán lại'], ['/pass', 'Chợ vé'],
+  ].map(([href, label]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} className={`tv-button ${pathname === href ? 'tv-primary' : ''}`}>{label}</Link>)}</nav><div key={publicView ? 'public' : revision}>{children}</div></CommercePage>;
+  return <SiteShell>{publicView ? content : <RequireAuth>{content}</RequireAuth>}</SiteShell>;
 }
-export function ManagerGate({ children }: { children: ReactNode }) {
-  const role = useAuthStore(s => s.user?.role);
-  return <RequireAuth>{role === 'admin' || role === 'moderator' ? children : <p role="alert">Bạn cần quyền ADMIN hoặc MODERATOR để xem trang này.</p>}</RequireAuth>;
+const labels: Record<string, string> = {
+  ACTIVE: 'Có hiệu lực', CANCELLED: 'Đã hủy', PENDING_PAYMENT: 'Chờ thanh toán', PAID: 'Đã thanh toán',
+  EXPIRED: 'Đã hết hạn', PAYMENT_FAILED: 'Thanh toán thất bại', AVAILABLE: 'Đang bán lại', RESERVED: 'Đang được giữ', SOLD: 'Đã chuyển nhượng',
+};
+export function Status({ value }: { value: string }) {
+  const positive = ['ACTIVE', 'PAID', 'AVAILABLE', 'SOLD'].includes(value);
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${positive ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-amber-300/30 bg-amber-300/10 text-amber-100'}`}>{labels[value] || value}</span>;
 }
-export function Failure({ error, retry }: { error: unknown; retry?: () => void }) {
-  const code = error instanceof AppApiError ? error.statusCode : undefined;
-  return <div role="alert" className="rounded-xl border border-rose-400/40 bg-rose-500/10 p-4"><p>{code === 401 ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : code === 403 ? 'Bạn không có quyền thực hiện thao tác này.' : code === 409 ? 'Trạng thái đã thay đổi. Dữ liệu đang được tải lại; hãy kiểm tra trước khi thử lại.' : code && code >= 500 ? 'Máy chủ chưa xử lý được yêu cầu. Vui lòng thử lại sau hoặc liên hệ quản trị.' : ''}</p><p>{error instanceof Error ? error.message : 'Không thể hoàn thành yêu cầu.'}</p>{retry && <button className="mt-2 underline" onClick={retry}>Thử lại</button>}</div>;
+export function useClock() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(timer); }, []);
+  return now;
 }
-export function Pagination({ page, total, limit = 20, busy, onChange }: { page: number; total: number; limit?: number; busy: boolean; onChange: (page: number) => void }) {
-  const pages = Math.max(1, Math.ceil(total / limit));
-  return <div className="flex items-center justify-between gap-3 text-sm"><button className="tv-button" disabled={busy || page <= 1} onClick={() => onChange(page - 1)}>Trước</button><span>{total} kết quả · Trang {page}/{pages}</span><button className="tv-button" disabled={busy || page >= pages} onClick={() => onChange(page + 1)}>Sau</button></div>;
+export function Empty({ text, href = '/events', action = 'Khám phá sự kiện' }: { text: string; href?: string; action?: string }) {
+  return <div className="tv-panel space-y-5 py-12 text-center"><p className="text-lg tv-muted">{text}</p><Link className="tv-button tv-primary" href={href}>{action}</Link></div>;
 }

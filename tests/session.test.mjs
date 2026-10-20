@@ -8,7 +8,7 @@ import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 const axios = require('axios');
-const user = { user_id: 'test-user', email: 'test@example.com', fullName: null };
+const user = { user_id: 'test-user', email: 'test@example.com', full_name: 'Test User', role: 'USER', status: 'ACTIVE' };
 const auth = (token = 'new-token') => ({ accessToken: token, user });
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
@@ -46,7 +46,7 @@ function harness(handler) {
   axios.defaults.adapter = adapter;
   try {
     const session = load('lib/auth/session.ts');
-    const store = load('lib/store/auth.store.ts').useAuthStore;
+    const store = load('lib/auth/auth.store.ts').useAuthStore;
     return { ...session, store, calls };
   } finally { axios.defaults.adapter = previous; }
 }
@@ -57,14 +57,14 @@ test('reload: one refresh shared by concurrent bootstrap, then /users/me with ne
     if (c.url === '/auth/refresh') { await gate.promise; return { data: auth() }; }
     assert.equal(c.url, '/users/me');
     assert.equal(c.headers.Authorization, 'Bearer new-token');
-    return { data: { ...user, fullName: 'Current name' } };
+    return { data: { ...user, full_name: 'Current name' } };
   });
   const first = h.restoreSession();
   assert.equal(h.restoreSession(), first);
   assert.equal(h.store.getState().status, 'restoring');
   gate.resolve(); await first;
   assert.equal(h.calls.length, 2);
-  assert.equal(h.store.getState().user.fullName, 'Current name');
+  assert.equal(h.store.getState().user.full_name, 'Current name');
   assert.equal(h.store.getState().status, 'authenticated');
 });
 
@@ -73,6 +73,17 @@ test('missing refresh cookie: unauthenticated, no /users/me', async () => {
   await h.restoreSession();
   assert.equal(h.calls.length, 1);
   assert.equal(h.store.getState().status, 'unauthenticated');
+});
+
+test('register returns BE profile without authenticating; login stores BE session', async () => {
+  const h = harness(c => c.url === '/auth/register' ? { status: 201, data: user } : { data: auth() });
+  const profile = await h.registerSession({ email: user.email, password: 'password', fullName: user.full_name });
+  assert.deepEqual(profile, user);
+  assert.equal(h.store.getState().isAuthenticated, false);
+  await h.loginSession({ email: user.email, password: 'password' });
+  assert.equal(h.store.getState().isAuthenticated, true);
+  assert.equal(h.store.getState().user.full_name, 'Test User');
+  assert.deepEqual(h.calls.map(c => c.url), ['/auth/register', '/auth/login']);
 });
 
 test('refresh network failure is retryable without logging out permanently', async () => {
@@ -173,3 +184,4 @@ test('late response from old session is rejected', async () => {
   gate.resolve();
   await assert.rejects(request);
 });
+

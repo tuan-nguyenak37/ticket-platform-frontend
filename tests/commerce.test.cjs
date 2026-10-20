@@ -4,13 +4,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
+function resolveLocal(file, name) {
+  const base = name.startsWith('@/') ? path.resolve(name.slice(2)) : path.resolve(path.dirname(file), name);
+  const found = [base, base + '.ts', base + '.tsx', path.join(base, 'index.ts')].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
+  if (!found) throw Error('Missing module: ' + name);
+  return found;
+}
 function load(file, dependencies = {}) {
   const code = ts.transpileModule(fs.readFileSync(path.resolve(file), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   const exports = {};
-  vm.runInNewContext(code, { exports, require: name => dependencies[name] ?? require(name), Intl, Date, Promise, process });
+  vm.runInNewContext(code, { exports, require: name => dependencies[name] ?? (name.startsWith('@/') || name.startsWith('.') ? load(resolveLocal(file, name), dependencies) : require(name)), Intl, Date, Promise, process });
   return exports;
 }
-const rules = load('lib/commerce/rules.ts');
+const rules = { ...load('features/orders/utils/order.rules.ts'), ...load('features/orders/utils/checkout-key.ts'), ...load('features/tickets/utils/ticket.rules.ts'), ...load('shared/utils/format.ts') };
 const baseOrder = { status: 'paid', buyerId: 'buyer', sellerId: 'seller', expiresAt: '2099-01-01T00:00:00Z', disputeUntil: '2099-01-02T00:00:00Z', dispute: null, payoutStatus: 'pending', payment: { status: 'succeeded' } };
 test('two buyers: only the allocated paid order permits download; refund_pending never does', () => {
   assert.equal(rules.orderPermissions(baseOrder, 'buyer', false, Date.now()).download, true);
@@ -58,7 +64,7 @@ test('PDF validation checks MIME, size and signature', async () => {
 test('API uses contract payloads, protected files and surfaces backend failures', async () => {
   const calls = []; let failure;
   const request = async (...args) => { calls.push(args); if (failure) throw failure; return { data: { success: true, data: baseOrder } }; };
-  const api = load('lib/commerce/api.ts', { '@/lib/auth/session': { apiClient: { get: request, post: request, delete: request } }, '@/lib/http/axios-client': { createApiClient: () => ({ get: request }) }, '@/lib/http/http-errors': { AppApiError: Error } });
+  const api = load('features/orders/api/orders.api.ts', { '@/lib/session/session': { apiClient: { get: request, post: request, delete: request } }, '@/lib/http/axios-client': { createApiClient: () => ({ get: request }) }, '@/lib/http/http-errors': { AppApiError: Error } });
   await api.createOrder('ticket', 'checkout-key');
   assert.equal(calls[0][0], '/orders');
   assert.equal(JSON.stringify(calls[0][1]), '{"ticketId":"ticket"}');
@@ -73,9 +79,9 @@ test('API uses contract payloads, protected files and surfaces backend failures'
 });
 test('OCR polling is bounded and stops on completed, failure and stale request errors', () => {
   let options;
-  const hooks = load('app/(modules)/(moderator)/moderator/tickets/_hooks/useTicketDetail.ts', {
+  const hooks = load('features/tickets/review/hooks/useTicketDetail.ts', {
     '@tanstack/react-query': { useQuery: value => { options = value; return {}; }, useQueryClient: () => ({}), useMutation: () => ({}) },
-    '../_lib/tickets.api': {},
+    '@/features/tickets/review/utils/tickets.api': {},
   });
   hooks.useTicketDetail('ticket');
   const state = { dataUpdateCount: 99, data: { status: 'pending_review', check: { status: 'processing' } } };
@@ -88,18 +94,17 @@ test('OCR polling is bounded and stops on completed, failure and stale request e
 test('refund_pending rendering explains the losing purchase and omits ticket download', () => {
   const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
   const order = { ...baseOrder, order_id: 'order-loser', amount: '400000.00', ticket: { eventName: 'Demo', ticketTier: 'VIP', seatInfo: 'A12' }, status: 'refund_pending', payment: { status: 'refund_pending' } };
-  const { OrderDetail } = load('components/commerce/OrderDetail.tsx', {
+  const { OrderDetail } = load('features/orders/components/OrderDetail.tsx', {
     'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
     '@tanstack/react-query': { useQuery: () => ({ data: order }), useQueryClient: () => ({}), useMutation: () => ({}) },
-    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
-    '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
-    './shared': { Failure: () => null },
-    './DisputeAttachments': { DisputeAttachments: () => null },
-    './DisputeDialog': { DisputeDialog: () => null }, './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
+    '@/features/orders/api/orders.api': {}, '@/features/orders/utils/order.rules': rules,
+    '@/lib/session/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'buyer' } }) },
+    '@/shared/ui/commerce': { Failure: () => null },
+    '@/features/disputes/ui': { DisputeAttachments: () => null, DisputeDialog: () => null }, '@/features/payments/ui': { PaymentHistory: () => null, TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-loser' }));
-  assert.match(html, /Chờ hoàn tiền \(refund_pending\)/);
-  assert.match(html, /người khác đã mua vé trước/);
+  assert.match(html, /Chờ hoàn tiền/);
+  assert.match(html, /người khác mua trước/);
   assert.match(html, /Chưa có xác nhận hoàn tiền/);
   assert.doesNotMatch(html, /Tải vé qua kết nối xác thực/);
 });
@@ -107,14 +112,13 @@ test('refund_pending rendering explains the losing purchase and omits ticket dow
 test('dispute evidence is displayed as escaped text and seller response form follows permissions', () => {
   const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
   const order = { ...baseOrder, order_id: 'order-dispute', amount: '400000.00', ticket: { eventName: 'Demo', ticketTier: 'VIP' }, status: 'disputed', dispute: { status: 'open', reason: 'Wrong tier', evidence: '<img src=x onerror=alert(1)> https://example.test', sellerResponse: null } };
-  const { OrderDetail } = load('components/commerce/OrderDetail.tsx', {
+  const { OrderDetail } = load('features/orders/components/OrderDetail.tsx', {
     'next/link': { default: ({ href, children }) => React.createElement('a', { href }, children) },
     '@tanstack/react-query': { useQuery: () => ({ data: order }), useQueryClient: () => ({}), useMutation: () => ({}) },
-    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules,
-    '@/lib/store/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
-    './shared': { Failure: () => null },
-    './DisputeAttachments': { DisputeAttachments: () => null },
-    './DisputeDialog': { DisputeDialog: () => null }, './PaymentHistory': { PaymentHistory: () => null }, './TransferForm': { TransferForm: () => null },
+    '@/features/orders/api/orders.api': {}, '@/features/orders/utils/order.rules': rules,
+    '@/lib/session/auth.store': { useAuthStore: selector => selector({ user: { user_id: 'seller' } }) },
+    '@/shared/ui/commerce': { Failure: () => null },
+    '@/features/disputes/ui': { DisputeAttachments: () => null, DisputeDialog: () => null }, '@/features/payments/ui': { PaymentHistory: () => null, TransferForm: () => null },
   });
   const html = renderToStaticMarkup(React.createElement(OrderDetail, { id: 'order-dispute' }));
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img|href="https:\/\/example.test"/);
@@ -125,8 +129,8 @@ test('dispute evidence is displayed as escaped text and seller response form fol
 test('dispute attachment download uses authenticated blob API, encoded IDs and cancellation', async () => {
   const calls = []; const signal = new AbortController().signal;
   const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
-  const api = load('lib/commerce/api.ts', {
-    '@/lib/auth/session': { apiClient: { get: async (...args) => { calls.push(args); return { data: blob }; } } },
+  const api = load('features/disputes/api/disputes.api.ts', {
+    '@/lib/session/session': { apiClient: { get: async (...args) => { calls.push(args); return { data: blob }; } } },
     '@/lib/http/axios-client': { createApiClient: () => ({}) },
     '@/lib/http/http-errors': { AppApiError: Error },
   });
@@ -138,8 +142,8 @@ test('dispute attachment download uses authenticated blob API, encoded IDs and c
 
 test('attachment list renders both parties and metadata without exposing remote file URLs', () => {
   const React = require('react'); const { renderToStaticMarkup } = require('react-dom/server');
-  const { DisputeAttachments } = load('components/commerce/DisputeAttachments.tsx', {
-    '@/lib/commerce/api': {}, '@/lib/commerce/rules': rules, './shared': { Failure: () => null },
+  const { DisputeAttachments } = load('features/disputes/components/DisputeAttachments.tsx', {
+    '@/features/disputes/api/disputes.api': {}, '@/shared/utils/format': rules, '@/shared/ui/commerce': { Failure: () => null },
   });
   const attachment = { id: 'file1', uploadedBy: '<seller>', side: 'seller', mimetype: 'application/pdf', size: 1024, createdAt: '2026-10-12T00:00:00Z', downloadUrl: 'https://external.test/private.pdf' };
   const html = renderToStaticMarkup(React.createElement(DisputeAttachments, { orderId: 'order', attachments: [attachment, { ...attachment, id: 'file2', side: 'buyer' }] }));
@@ -152,7 +156,7 @@ test('attachment list renders both parties and metadata without exposing remote 
 
 test('user API respects self/admin paths, exact fields and untrimmed passwords', async () => {
   const calls = []; const send = async (...args) => { calls.push(args); return { data: { success: true, data: {} } }; };
-  const api = load('lib/users/api.ts', { '@/lib/auth/session': { apiClient: { get: send, patch: send, post: send } }, '@/lib/http/http-errors': { AppApiError: Error } });
+  const api = load('features/account/api/api.ts', { '@/lib/session/session': { apiClient: { get: send, patch: send, post: send } }, '@/lib/http/http-errors': { AppApiError: Error } });
   await api.listUsers(); assert.equal(calls.at(-1)[0], '/users');
   assert.equal(calls.at(-1)[1].params, undefined);
   await api.getUser('user/1'); assert.equal(calls.at(-1)[0], '/users/user%2F1');
@@ -175,7 +179,7 @@ test('user API respects self/admin paths, exact fields and untrimmed passwords',
 
 test('card confirmation sends the demo DTO to the current payment endpoint', async () => {
   const calls = []; const result = { success: true, data: { status: 'refund_pending' } };
-  const api = load('lib/commerce/payment.ts', { '@/lib/auth/session': { apiClient: { post: async (...args) => { calls.push(args); return { data: result }; } } }, '@/lib/http/http-errors': { AppApiError: Error } });
+  const api = load('features/payments/api/payments.api.ts', { '@/lib/session/session': { apiClient: { post: async (...args) => { calls.push(args); return { data: result }; } } }, '@/lib/http/http-errors': { AppApiError: Error } });
   await api.startPayment('order', 'attempt-key');
   assert.equal(calls[0][0], '/orders/me/order/payments');
   assert.equal(calls[0][1], undefined);

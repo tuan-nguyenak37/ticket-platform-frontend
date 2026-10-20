@@ -1,3 +1,13 @@
+# TicketVerse frontend
+
+Next.js frontend cho nền tảng mua bán lại vé sự kiện PDF.
+
+- [Hướng dẫn chức năng và API](docs/ticketverse-frontend.md)
+- [Cấu trúc theo chức năng](docs/frontend-architecture.md)
+- [Quy chuẩn giao diện](style.md)
+
+Chạy `npm run dev` sau khi cấu hình `.env` theo `.env.example`. Nếu server đang chạy trước khi di chuyển route, khởi động lại để Next cập nhật cây route.
+
 # Frontend
 
 Next.js App Router, React, TypeScript, TanStack Query, Axios và Zustand.
@@ -11,73 +21,24 @@ npm run dev
 
 Backend mặc định: `http://localhost:7000/api`. Đổi bằng `NEXT_PUBLIC_API_URL` trong `.env.local`.
 
-## Tổ chức theo tính năng
+## Cấu trúc mã nguồn
 
-Giao diện và nghiệp vụ của một tính năng nằm cạnh nhau trong `app`. `lib` chứa logic và cấu hình dùng chung.
+`app/` giữ `layout.tsx`, `page.tsx`, `globals.css` và `providers.tsx` ở root; các chức năng nằm trong `(modules)` với các nhóm `(auth)`, `(account)`, `(organizer)`, `(moderator)` và `(admin)`. Route groups không xuất hiện trong URL. Code dành riêng cho một nhánh nằm ở `_components/`, `_hooks/`, `_lib/` cạnh trang; code dùng chung nằm trong `components/`, `lib/`, `hooks/`, `types/`, `config/`.
 
-```text
-app/
-  layout.tsx                  # Layout gốc
-  providers.tsx               # Ghép các provider toàn ứng dụng
-  globals.css
-  page.tsx                    # Trang chủ /
-  auth/
-    login/page.tsx            # /auth/login
-    register/page.tsx         # /auth/register
-    _module/                  # Toàn bộ code nội bộ của tính năng auth
-      LoginForm.tsx           # Giao diện đăng nhập
-      RegisterForm.tsx        # Giao diện đăng ký
-      use-auth.ts             # Hooks query/mutation, điều hướng
-      auth.service.ts         # Các lời gọi API auth
-      auth-client.ts          # Gắn token, xử lý phiên đăng nhập khi lỗi 401
-      auth.store.ts           # Zustand: phiên đăng nhập
-      auth.types.ts           # Kiểu dữ liệu auth
-      auth.keys.ts            # Query keys auth
-      index.ts                # Export dùng bên ngoài tính năng
-lib/
-  env.ts                      # Cấu hình môi trường
-  http/
-    axios-client.ts           # HTTP factory dùng chung
-    http-errors.ts            # Chuẩn hóa lỗi HTTP
-  query/
-    query-client.ts           # Cấu hình cache mặc định
-    QueryProvider.tsx         # Kết nối TanStack Query với React
-```
-
-`_module` là thư mục private của Next.js, không tạo route. Đây là tên quy ước của dự án, không phải tên bắt buộc của framework. Giữ các file cùng cấp khi tính năng còn nhỏ; chỉ chia thêm thư mục khi số lượng file thực sự cần.
-
-File nháp trống có sẵn `app/(modules)/auth/(homePage)/page.tsx` được giữ nguyên. File này tạo route `/auth` và cần có default export hợp lệ trước khi build toàn dự án.
-
-## Quy ước
-
-- Mở `app/auth` là tìm thấy cả route, giao diện và nghiệp vụ auth.
-- `page.tsx` giữ metadata và ghép giao diện. Logic auth nằm trong `_module`.
-- Trong `_module`, import trực tiếp file cùng cấp. Các tính năng khác cần auth có thể import export công khai từ `@/app/auth/_module`; tránh import vòng qua `index.ts` trong nội bộ auth.
-- `lib` không import ngược từ `app`. HTTP nhận callback để auth tự cung cấp token và xử lý 401.
-- TanStack Query giữ trạng thái request và cache API. Zustand giữ phiên đăng nhập. Query keys nằm cạnh code auth, cấu hình cache chung nằm trong `lib/query`.
-- Auth hooks, store và authenticated HTTP client dùng phía client. Server Components có thể render form client; HTTP phía server cần thông tin xác thực riêng theo từng request.
-- Component giao diện dùng chung giữa nhiều tính năng có thể đặt trong `components`; chỉ tạo thư mục này khi cần.
-
-## Thêm tính năng mới
-
-Ví dụ quản lý sản phẩm:
-
-```text
-app/products/
-  page.tsx
-  [id]/page.tsx
-  _module/
-    ProductList.tsx
-    ProductDetails.tsx
-    use-products.ts
-    product.service.ts
-    product.types.ts
-    product.keys.ts
-```
-
-Chỉ tạo file cần dùng. Không bắt buộc mỗi tính năng phải có store, HTTP client riêng hoặc đủ mọi lớp. Các service phía client cần token có thể dùng `authenticatedApiClient` được export từ auth.
+Các nhánh chưa có `page.tsx` hiện chỉ là khung thư mục với `.gitkeep`; chưa phải chức năng hoạt động. Auth có trang `/login`, `/register`, `/account` và modal dùng chung form. Xem `docs/auth-frontend.md` để cấu hình cookie/CORS và refresh phiên. Xem `docs/frontend-architecture.md` để tiếp tục phát triển theo cây route.
 
 ## Kiểm tra
+
+### Quản trị tài khoản 2.0 (14/10/2026)
+
+- `/admin`: chỉ ADMIN; danh sách và lọc người dùng, tạo tài khoản USER, sửa tên/số điện thoại, đình chỉ/mở lại kèm lý do. Dùng `/api/users`, không có prefix `/v1` cho nhóm API này.
+- `/moderator/users`: chỉ MODERATOR; nhập ID và xác nhận thay đổi trạng thái tài khoản USER qua `PATCH /api/users/:id/status`. Không gọi API danh sách/chi tiết chỉ dành cho ADMIN.
+- ADMIN không được đổi trạng thái chính mình hoặc tài khoản ADMIN; MODERATOR không được đổi trạng thái tài khoản MODERATOR/ADMIN. Backend kiểm tra quyền cuối cùng.
+- Chưa có API quản trị trạng thái Organizer hoặc cấp vai trò; giao diện không giả lập các chức năng đó. Đình chỉ tài khoản không đồng nghĩa đình chỉ Organizer.
+- Nghiệm thu thủ công với tài khoản thử nghiệm: khách/sai vai trò bị chặn; ADMIN tạo/sửa USER và đình chỉ/mở lại có lý do; MODERATOR xử lý USER theo ID; thử ID sai, lý do rỗng, quyền bị từ chối, mạng/Redis lỗi và chuyển phiên đăng nhập.
+- Danh sách ADMIN hiện tải toàn bộ từ API; tìm kiếm và phân trang trên dữ liệu đã tải, không phải tìm kiếm/phân trang phía server. Không dùng số hiển thị làm thống kê nghiệp vụ toàn nền tảng.
+
+Các lệnh bên dưới chỉ là hướng dẫn; không tự chạy build/test trong đợt bổ sung giao diện quản trị.
 
 ```bash
 npm run lint

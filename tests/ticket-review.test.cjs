@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
-const base = 'app/(modules)/(moderator)/moderator/tickets/';
+const base = 'features/tickets/review/';
 function load(file, deps = {}) {
   const source = fs.readFileSync(path.join(root, base, file), 'utf8');
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
@@ -13,7 +13,7 @@ function load(file, deps = {}) {
   vm.runInNewContext(code, { exports, require: name => { if (!(name in deps)) throw Error(name); return deps[name]; }, Intl, Date, Promise });
   return exports;
 }
-const logic = load('_lib/tickets.utils.ts');
+const logic = load('utils/tickets.utils.ts');
 function ticket() {
   return { ticket_id: 't1', sellerId: 'seller', status: 'pending_review', review: null, event: { endTime: '2099-01-01T00:00:00Z' }, check: { status: 'completed', version: 2, codes: [{ id: 'code1' }], report: { reasons: [], duplicates: [] } } };
 }
@@ -46,7 +46,7 @@ test('warnings require a trimmed note, but duplicates do not block every code', 
 test('API uses protected endpoints, raw blob, exact review payloads and propagates failures', async () => {
   const calls = []; let failure;
   const send = async (...args) => { calls.push(args); if (failure) throw failure; return { data: { success: true, data: ticket() } }; };
-  const api = load('_lib/tickets.api.ts', { '@/lib/auth/session': { apiClient: { get: send, post: send, patch: send } }, '@/lib/http/http-errors': { AppApiError: Error } });
+  const api = load('utils/tickets.api.ts', { '@/lib/session/session': { apiClient: { get: send, post: send, patch: send } }, '@/lib/http/http-errors': { AppApiError: Error } });
   await api.getTickets({ page: 1, limit: 20 });
   assert.deepEqual(Object.keys(calls[0][1].params).sort(), ['limit', 'page']);
   await api.checkTicket('ticket/1');
@@ -60,9 +60,9 @@ test('API uses protected endpoints, raw blob, exact review payloads and propagat
 });
 test('poll only pending running jobs; decisions never retry and reconcile both caches', async () => {
   const mutations = []; const invalidated = []; let options;
-  const hooks = load('_hooks/useTicketDetail.ts', {
+  const hooks = load('hooks/useTicketDetail.ts', {
     '@tanstack/react-query': { useQuery: value => { options = value; return {}; }, useMutation: value => { mutations.push(value); return {}; }, useQueryClient: () => ({ invalidateQueries: async ({ queryKey }) => invalidated.push(queryKey.join('/')), setQueryData: () => {} }) },
-    '../_lib/tickets.api': { getTicket: () => {}, checkTicket: () => {}, reviewTicket: () => {} },
+    '@/features/tickets/review/utils/tickets.api': { getTicket: () => {}, checkTicket: () => {}, reviewTicket: () => {} },
   });
   hooks.useTicketDetail('t1');
   assert.equal(options.refetchIntervalInBackground, false);

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { AppProviders } from "./providers";
-import { SiteShell } from "@/components/layout/SiteShell";
+import { AppProviders } from '@/app/providers';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TicketVerse - Nền tảng Vé Sự kiện & Lễ hội Âm nhạc",
-  description: "Khám phá và đặt vé cho các concert, lễ hội âm nhạc, sự kiện thể thao và giải trí hàng đầu.",
+  title: "TicketVerse - Mua và bán lại vé sự kiện",
+  description: "Tìm và bán lại vé PDF cho concert, lễ hội và sự kiện. Theo dõi đơn hàng và tiền bán vé cùng TicketVerse.",
 };
 
 export default function RootLayout({
@@ -31,7 +30,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen flex flex-col bg-slate-950 text-white font-sans relative selection:bg-violet-500/40 selection:text-white">
         <AppProviders>
-          <SiteShell>{children}</SiteShell>
+          {children}
         </AppProviders>
       </body>
     </html>

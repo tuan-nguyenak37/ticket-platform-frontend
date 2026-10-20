@@ -1,3 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default function ModeratorPage() { redirect('/moderator/dashboard'); }
+export default function ModeratorRootPage() {
+  redirect('/moderator/events');
+}

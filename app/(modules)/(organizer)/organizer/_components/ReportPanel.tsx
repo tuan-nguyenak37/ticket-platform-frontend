@@ -1,0 +1,11 @@
+'use client';
+import { useQuery } from '@tanstack/react-query';
+import { useAuthStore } from '@/lib/auth/auth.store';
+import { organizerApi, vnd } from '../_lib/organizer.api';
+
+export function ReportPanel({ organizerId, eventId }: { organizerId: string; eventId?: string }) {
+  const revision = useAuthStore(state => state.revision);
+  const userId = useAuthStore(state => state.user?.user_id);
+  const { data, error, isPending, refetch } = useQuery({ queryKey: ['organizer', userId, revision, organizerId, 'report', eventId], queryFn: ({ signal }) => organizerApi.report(organizerId, eventId, signal) });
+  return <section className="space-y-5"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.2em] text-fuchsia-300">Tổng quan</p><h2 className="mt-2 text-2xl font-semibold">Báo cáo bán vé</h2><p className="mt-2 tv-muted">Toàn thời gian · chỉ đơn mua vé chính thức PAID. Giá trị đơn không phải tiền thực nhận.</p></div><button className="tv-button" onClick={() => void refetch()}>Làm mới</button></div>{isPending && <p role="status">Đang tải báo cáo…</p>}{error && <p role="alert">{error.message}</p>}{data && <><div className="grid gap-4 sm:grid-cols-3">{[['Đơn đã thanh toán', data.totals.orderCount], ['Vé đã bán', data.totals.ticketCount], ['Giá trị đơn', vnd(data.totals.amount)]].map(([label, value]) => <div key={label} className="tv-panel"><p className="tv-muted">{label}</p><p className="mt-3 text-2xl font-semibold">{value}</p></div>)}</div><div className="tv-panel overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-white/20"><th className="p-3">Sự kiện / suất / hạng vé</th><th className="p-3">Đơn</th><th className="p-3">Vé</th><th className="p-3">Giá trị đơn</th></tr></thead><tbody>{data.rows.map(row => <tr className="border-b border-white/10" key={row.ticketTypeId}><td className="p-3">{row.eventTitle} / {row.showingName} / {row.ticketTypeName}</td><td className="p-3">{row.orderCount}</td><td className="p-3">{row.ticketCount}</td><td className="p-3">{vnd(row.amount)}</td></tr>)}</tbody></table>{!data.rows.length && <p className="p-3 tv-muted">Chưa có hạng vé để báo cáo.</p>}</div></>}</section>;
+}
