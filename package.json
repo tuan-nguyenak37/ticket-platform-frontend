@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/session.test.mjs tests/ticket-review.test.cjs tests/commerce.test.cjs"
+    "test": "node --test tests/*.test.cjs tests/*.test.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",
