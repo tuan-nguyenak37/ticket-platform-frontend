@@ -1,48 +1,68 @@
-# TicketVerse frontend
+# TicketVerse Frontend
 
-Next.js frontend cho nền tảng mua bán lại vé sự kiện PDF.
+Giao diện nền tảng đặt vé sự kiện và bán lại vé, xây dựng bằng Next.js App Router, React, TypeScript, TanStack Query, Axios và Zustand. Backend NestJS được quản lý trong repo riêng.
 
-- [Hướng dẫn chức năng và API](docs/ticketverse-frontend.md)
-- [Cấu trúc theo chức năng](docs/frontend-architecture.md)
-- [Quy chuẩn giao diện](style.md)
+## Yêu cầu và khởi chạy
 
-Chạy `npm run dev` sau khi cấu hình `.env` theo `.env.example`. Nếu server đang chạy trước khi di chuyển route, khởi động lại để Next cập nhật cây route.
+Cần Node.js 22 trở lên, npm và backend đã cấu hình PostgreSQL/Redis.
 
-# Frontend
-
-Next.js App Router, React, TypeScript, TanStack Query, Axios và Zustand.
-
-## Chạy dự án
-
-```bash
-npm install
+```powershell
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Backend mặc định: `http://localhost:7000/api`. Đổi bằng `NEXT_PUBLIC_API_URL` trong `.env.local`.
+Frontend chạy tại `http://localhost:3000`; backend mặc định tại `http://localhost:7000/api`.
 
-## Cấu trúc mã nguồn
+- `NEXT_PUBLIC_API_URL`: địa chỉ API dùng cho dữ liệu công khai.
+- `BACKEND_API_URL`: địa chỉ API phía server dùng cho proxy và xác minh phiên SSR; không đặt secrets trong biến `NEXT_PUBLIC_*`.
+- `NEXT_PUBLIC_UPLOAD_MAX_FILE_SIZE_MB`: giới hạn upload phải khớp backend.
 
-`app/` giữ `layout.tsx`, `page.tsx`, `globals.css` và `providers.tsx` ở root; các chức năng nằm trong `(modules)` với các nhóm `(auth)`, `(account)`, `(organizer)`, `(moderator)` và `(admin)`. Route groups không xuất hiện trong URL. Code dành riêng cho một nhánh nằm ở `_components/`, `_hooks/`, `_lib/` cạnh trang; code dùng chung nằm trong `components/`, `lib/`, `hooks/`, `types/`, `config/`.
+Chỉ tạo một cấu hình môi trường cục bộ cho cùng mục đích. Nếu đã có `.env`, kiểm tra giá trị trước khi tạo `.env.local` vì `.env.local` có độ ưu tiên cao hơn. Không commit các file này; `.env.example` được giữ lại làm mẫu.
 
-Các nhánh chưa có `page.tsx` hiện chỉ là khung thư mục với `.gitkeep`; chưa phải chức năng hoạt động. Auth có trang `/login`, `/register`, `/account` và modal dùng chung form. Xem `docs/auth-frontend.md` để cấu hình cookie/CORS và refresh phiên. Xem `docs/frontend-architecture.md` để tiếp tục phát triển theo cây route.
+## Chức năng
 
-## Kiểm tra
+- Khám phá sự kiện, chọn suất diễn/hạng vé và thanh toán VNPay.
+- Quản lý hồ sơ, đơn hàng, QR/PDF vé và lịch sử bán lại.
+- Chợ vé bán lại, thông tin nhận tiền của người bán và trạng thái chi trả.
+- Không gian Organizer, kiểm duyệt sự kiện, quản trị người dùng và biểu đồ thống kê.
+- Thông báo trong web; khả năng gửi email phụ thuộc cấu hình backend.
 
-### Quản trị tài khoản 2.0 (14/10/2026)
+Mọi trạng thái thanh toán, quyền truy cập, giá và tồn kho do backend quyết định. Kết quả quay về từ trang VNPay không tự xác nhận đơn đã thanh toán. Tích hợp hiện dùng môi trường thử nghiệm; chưa có chuyển khoản thật cho người bán.
 
-- `/admin`: chỉ ADMIN; danh sách và lọc người dùng, tạo tài khoản USER, sửa tên/số điện thoại, đình chỉ/mở lại kèm lý do. Dùng `/api/users`, không có prefix `/v1` cho nhóm API này.
-- `/moderator/users`: chỉ MODERATOR; nhập ID và xác nhận thay đổi trạng thái tài khoản USER qua `PATCH /api/users/:id/status`. Không gọi API danh sách/chi tiết chỉ dành cho ADMIN.
-- ADMIN không được đổi trạng thái chính mình hoặc tài khoản ADMIN; MODERATOR không được đổi trạng thái tài khoản MODERATOR/ADMIN. Backend kiểm tra quyền cuối cùng.
-- Chưa có API quản trị trạng thái Organizer hoặc cấp vai trò; giao diện không giả lập các chức năng đó. Đình chỉ tài khoản không đồng nghĩa đình chỉ Organizer.
-- Nghiệm thu thủ công với tài khoản thử nghiệm: khách/sai vai trò bị chặn; ADMIN tạo/sửa USER và đình chỉ/mở lại có lý do; MODERATOR xử lý USER theo ID; thử ID sai, lý do rỗng, quyền bị từ chối, mạng/Redis lỗi và chuyển phiên đăng nhập.
-- Danh sách ADMIN hiện tải toàn bộ từ API; tìm kiếm và phân trang trên dữ liệu đã tải, không phải tìm kiếm/phân trang phía server. Không dùng số hiển thị làm thống kê nghiệp vụ toàn nền tảng.
+## Xác thực
 
-Các lệnh bên dưới chỉ là hướng dẫn; không tự chạy build/test trong đợt bổ sung giao diện quản trị.
+Access JWT chỉ lưu trong Zustand, không persist vào localStorage/sessionStorage. Axios gửi Bearer token qua proxy cùng origin. Refresh JWT nằm trong cookie HttpOnly; backend xác minh và xoay token dùng một lần bằng Redis.
 
-```bash
+SSR chỉ lấy hồ sơ tối thiểu; sau hydrate, frontend lấy access token âm thầm. Các API có bảo vệ đợi khôi phục phiên. Xem [tài liệu xác thực](docs/auth-frontend.md).
+
+## Kiểm tra và build
+
+```sh
+npm test
 npm run lint
 npx next typegen
-npx tsc --noEmit
+npm run typecheck
 npm run build
 ```
+
+`next typegen` tạo kiểu route cần thiết khi kiểm tra từ checkout sạch. `next/font/google` tải font khi build, do đó cần kết nối tới máy chủ font Google. Build thành công không thay cho kiểm thử backend, email hoặc cổng thanh toán thực tế.
+
+```sh
+npm run start
+```
+
+Lệnh `start` phục vụ bản production sau khi đã build.
+
+## Cấu trúc và tài liệu
+
+`app/` chứa layout/provider chung và các module `(auth)`, `(account)`, `(public)`, `(organizer)`, `(moderator)`, `(admin)`. Route groups không xuất hiện trong URL. Thành phần riêng của từng nhánh đặt trong `_components`/`_lib`; phần dùng chung nằm ở `components`, `lib`, `hooks`, `types` và `config`.
+
+- [Hướng dẫn frontend](docs/ticketverse-frontend.md)
+- [Cấu trúc theo chức năng](docs/frontend-architecture.md)
+- [Trang khách hàng](docs/home-implementation.md)
+- [Không gian Organizer](docs/organizer-frontend.md)
+- [Giao diện Admin](docs/admin-implementation.md)
+- [Trạng thái kiểm chứng và phần chưa đồng bộ backend](docs/verification-status.md)
+
+Một số tài liệu cũ còn mô tả route/API legacy. Kiểm tra mã đang chạy và test trước khi dùng các ví dụ đó. Không commit secrets, thông tin tài khoản thật, file build, log hoặc dữ liệu người dùng.
