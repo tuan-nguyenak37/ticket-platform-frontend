@@ -1,8 +1,12 @@
 import type { User } from '@/lib/auth/types/userInterface';
 
 export interface AuthData {
-  accessToken: string;
   user: User;
+}
+
+export interface TokenAuthData extends AuthData {
+  accessToken: string;
+  accessTokenExpiresAt: string;
 }
 
 export interface ApiResponse<T> {

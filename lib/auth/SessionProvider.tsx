@@ -8,7 +8,6 @@ import { refreshExpiringSession, restoreSession, subscribeToSessionChanges } fro
 export function SessionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   useEffect(() => {
-    // Dọn token đã được lưu bởi cấu hình persist cũ; phiên mới chỉ ở bộ nhớ.
     try {
       localStorage.removeItem('auth-session');
       localStorage.removeItem('auth-store');
@@ -30,7 +29,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const timer = window.setInterval(refresh, 30_000);
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', online);
-    void restoreSession();
+    if (useAuthStore.getState().status === 'restoring') void restoreSession();
+    else refresh();
     return () => {
       unsubscribe();
       stopSync();

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { Dialog } from '@/components/ui/Dialog';
 import { loginSession, registerSession, restoreSession } from '@/lib/auth/session';
@@ -40,6 +41,7 @@ export function AuthForm({ initialMode, nextPath = '/account', registered = fals
     if (pending.current) return;
     setPassword('');
     setConfirmation('');
+    setShowPassword(false);
     setError('');
     setNotice('');
     const nextMode = registering ? 'login' : 'register';
@@ -93,29 +95,32 @@ export function AuthForm({ initialMode, nextPath = '/account', registered = fals
     }
   }
 
-  const content = <form onSubmit={submit} className="space-y-4" aria-busy={busy}>
+  const content = <form onSubmit={submit} className="tv-auth-form" aria-busy={busy}>
+      <p className="tv-auth-intro">{registering ? 'Một tài khoản, mọi trải nghiệm bạn yêu thích.' : 'Đăng nhập để đặt vé và quản lý trải nghiệm của bạn.'}</p>
       {status === 'restoring' && <p role="status" className="text-sm tv-muted">Đang khôi phục phiên đăng nhập…</p>}
       {status === 'error' && <div role="alert" className="text-sm text-amber-200">Chưa thể khôi phục phiên. Bạn có thể đăng nhập lại hoặc <button type="button" className="underline" onClick={() => void restoreSession()}>thử kết nối lại</button>.</div>}
-      {notice && <p role="status" className="text-sm text-emerald-300">{notice}</p>}
-      {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
-      <fieldset disabled={busy || status === 'restoring'} className="space-y-4">
-        {registering && <label className="block text-sm" htmlFor={identifier + "-full-name"}>Họ và tên
-          <input id={identifier + "-full-name"} name="fullName" className="tv-input" autoComplete="name" required maxLength={150} value={fullName} onChange={event => setFullName(event.target.value)} />
+      {notice && <p role="status" className="tv-auth-message text-emerald-300">{notice}</p>}
+      {error && <p role="alert" className="tv-auth-message text-rose-300">{error}</p>}
+      <fieldset disabled={busy || status === 'restoring'} className="tv-auth-fields">
+        {registering && <label className="tv-auth-field" htmlFor={identifier + "-full-name"}>Họ và tên
+          <input id={identifier + "-full-name"} name="fullName" className="tv-input" autoComplete="name" placeholder="Tên của bạn" required maxLength={150} value={fullName} onChange={event => setFullName(event.target.value)} />
         </label>}
-        <label className="block text-sm" htmlFor={identifier + "-email"}>Email
-          <input id={identifier + "-email"} name="email" className="tv-input" type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} />
+        <label className="tv-auth-field" htmlFor={identifier + "-email"}>Email
+          <input id={identifier + "-email"} name="email" className="tv-input" type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="ban@example.com" required value={email} onChange={event => setEmail(event.target.value)} />
         </label>
-        <label className="block text-sm" htmlFor={identifier + "-password"}>Mật khẩu
-          <input id={identifier + "-password"} name="password" className="tv-input" type={showPassword ? 'text' : 'password'} autoComplete={registering ? 'new-password' : 'current-password'} required minLength={registering ? 6 : undefined} maxLength={registering ? 32 : undefined} value={password} onChange={event => setPassword(event.target.value)} />
-        </label>
-        {registering && <label className="block text-sm" htmlFor={identifier + "-confirmation"}>Xác nhận mật khẩu
-          <input id={identifier + "-confirmation"} name="confirmation" className="tv-input" type={showPassword ? 'text' : 'password'} autoComplete="new-password" required minLength={6} maxLength={32} value={confirmation} onChange={event => setConfirmation(event.target.value)} />
+        <div className="tv-auth-field"><label htmlFor={identifier + "-password"}>Mật khẩu</label>
+          <div className="tv-auth-password"><input id={identifier + "-password"} name="password" className="tv-input" type={showPassword ? 'text' : 'password'} autoComplete={registering ? 'new-password' : 'current-password'} aria-describedby={registering ? identifier + '-password-hint' : undefined} required minLength={registering ? 6 : undefined} maxLength={registering ? 32 : undefined} value={password} onChange={event => setPassword(event.target.value)} />
+            <button type="button" className="tv-auth-reveal" aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-controls={identifier + '-password' + (registering ? ' ' + identifier + '-confirmation' : '')} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}</button>
+          </div>
+          {registering && <p id={identifier + '-password-hint'} className="tv-auth-hint">Sử dụng từ 6 đến 32 ký tự.</p>}
+        </div>
+        {registering && <label className="tv-auth-field" htmlFor={identifier + "-confirmation"}>Xác nhận mật khẩu
+          <input id={identifier + "-confirmation"} name="confirmation" className="tv-input" type={showPassword ? 'text' : 'password'} autoComplete="new-password" placeholder="Nhập lại mật khẩu" required minLength={6} maxLength={32} value={confirmation} onChange={event => setConfirmation(event.target.value)} />
         </label>}
-        <button type="button" className="text-sm tv-muted underline" aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}</button>
         {cooldown > 0 && <p role="status" className="text-sm text-amber-200">Vui lòng thử lại sau {cooldown} giây.</p>}
-        <button className="tv-button tv-primary w-full" type="submit" disabled={cooldown > 0}>{busy ? 'Đang xử lý…' : registering ? 'Đăng ký' : 'Đăng nhập'}</button>
-        <button className="tv-button w-full" type="button" onClick={switchMode}>{registering ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}</button>
+        <button className="tv-button tv-primary tv-auth-submit" type="submit" disabled={cooldown > 0}>{busy ? 'Đang xử lý…' : registering ? 'Tạo tài khoản' : 'Đăng nhập'}{!busy && <ArrowRight size={18} aria-hidden="true" />}</button>
+        <p className="tv-auth-switch">{registering ? 'Đã có tài khoản?' : 'Chưa có tài khoản?'} <button type="button" onClick={switchMode}>{registering ? 'Đăng nhập' : 'Đăng ký ngay'}</button></p>
       </fieldset>
     </form>;
-  return onClose ? <Dialog title={registering ? 'Tạo tài khoản' : 'Đăng nhập'} onClose={close} busy={busy}>{content}</Dialog> : content;
+  return onClose ? <Dialog title={registering ? 'Tạo tài khoản' : 'Đăng nhập'} className="tv-auth-dialog" onClose={close} busy={busy}>{content}</Dialog> : content;
 }

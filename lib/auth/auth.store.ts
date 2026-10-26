@@ -1,39 +1,51 @@
 'use client';
 
-import { create } from 'zustand';
-import type { AuthData, AuthResponse } from '@/lib/auth/types/authInterface';
+import { createContext, createElement, useContext, useState, type ReactNode } from 'react';
+import { useStore } from 'zustand';
+import { createStore } from 'zustand/vanilla';
+import type { AuthData, AuthResponse, TokenAuthData } from '@/lib/auth/types/authInterface';
 import type { User } from '@/lib/auth/types/userInterface';
 
 export type AuthStatus = 'restoring' | 'authenticated' | 'unauthenticated' | 'error';
 
 interface AuthStore {
-  accessToken: string | null;
   user: User | null;
+  accessToken: string | null;
+  accessTokenExpiresAt: string | null;
   status: AuthStatus;
   error: string | null;
   isAuthenticated: boolean;
   // Thay đổi khi đăng nhập/đăng xuất để bỏ kết quả request của phiên cũ.
   revision: number;
-  setAuth: (data: AuthData) => void;
+  setAuth: (data: AuthData | TokenAuthData) => void;
   setAuthFromResponse: (response: AuthResponse) => void;
-  setSession: (data: AuthData, status?: AuthStatus) => void;
+  setSession: (data: AuthData | TokenAuthData, status?: AuthStatus) => void;
   setStatus: (status: AuthStatus, error?: string) => void;
   updateUser: (updates: Partial<Omit<User, 'user_id'>>) => void;
   clearSession: () => void;
 }
 
-export const useAuthStore = create<AuthStore>()((set, get) => ({
+export type AuthSnapshot = { user: User | null; status: AuthStatus };
+
+function createAuthStore(initial?: AuthSnapshot) {
+  return createStore<AuthStore>()((set, get) => ({
+  user: initial?.user ?? null,
   accessToken: null,
-  user: null,
-  status: 'restoring',
+  accessTokenExpiresAt: null,
+  status: initial?.status ?? 'restoring',
   error: null,
-  isAuthenticated: false,
+  isAuthenticated: initial?.status === 'authenticated',
   revision: 0,
-  setSession: ({ accessToken, user }, status = 'authenticated') => {
-    if (!accessToken?.trim() || !user?.user_id) {
-      throw new Error('Dữ liệu phiên thiếu accessToken hoặc user_id.');
+  setSession: (data, status = 'authenticated') => {
+    const { user } = data;
+    if (!user?.user_id) {
+      throw new Error('Dữ liệu phiên thiếu user_id.');
     }
-    set({ accessToken, user, status, error: null, isAuthenticated: status === 'authenticated' });
+    set({ user, status, error: null, isAuthenticated: status === 'authenticated',
+      ...('accessToken' in data
+        ? { accessToken: data.accessToken, accessTokenExpiresAt: data.accessTokenExpiresAt }
+        : get().user?.user_id !== user.user_id ? { accessToken: null, accessTokenExpiresAt: null } : {}),
+    });
   },
   setAuth: (data) => {
     get().setSession(data);
@@ -50,7 +62,35 @@ export const useAuthStore = create<AuthStore>()((set, get) => ({
     user: state.user ? { ...state.user, ...updates, user_id: state.user.user_id } : null,
   })),
   clearSession: () => set((state) => ({
-    accessToken: null, user: null, status: 'unauthenticated', error: null,
+    user: null, status: 'unauthenticated', error: null,
+    accessToken: null, accessTokenExpiresAt: null,
     isAuthenticated: false, revision: state.revision + 1,
   })),
-}));
+  }));
+}
+
+let browserStore = createAuthStore();
+const AuthContext = createContext(browserStore);
+let browserInitialized = false;
+
+export function AuthStoreProvider({ initial, children }: { initial: AuthSnapshot; children: ReactNode }) {
+  const [store] = useState(() => {
+    if (typeof window === 'undefined') return createAuthStore(initial);
+    if (!browserInitialized) {
+      browserStore = createAuthStore(initial);
+      browserInitialized = true;
+    }
+    return browserStore;
+  });
+  return createElement(AuthContext.Provider, { value: store }, children);
+}
+
+export const useAuthStore = Object.assign(
+  function useAuthStore<T>(selector: (state: AuthStore) => T): T {
+    return useStore(useContext(AuthContext), selector);
+  },
+  {
+    getState: () => browserStore.getState(),
+    subscribe: (listener: Parameters<typeof browserStore.subscribe>[0]) => browserStore.subscribe(listener),
+  },
+);

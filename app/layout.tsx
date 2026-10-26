@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from '@/app/providers';
+import { getServerSession } from '@/lib/auth/server-session';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,18 +19,19 @@ export const metadata: Metadata = {
   description: "Tìm và bán lại vé PDF cho concert, lễ hội và sự kiện. Theo dõi đơn hàng và tiền bán vé cùng TicketVerse.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const initialSession = await getServerSession();
   return (
     <html
       lang="vi"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
       <body className="min-h-screen flex flex-col bg-slate-950 text-white font-sans relative selection:bg-violet-500/40 selection:text-white">
-        <AppProviders>
+        <AppProviders initialSession={initialSession}>
           {children}
         </AppProviders>
       </body>
