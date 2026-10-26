@@ -1,16 +1,16 @@
 ﻿'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Calendar, Building, Info, ShieldAlert } from 'lucide-react';
+import { useAuthStore } from '@/lib/auth/auth.store';
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Building, ShieldAlert } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { formatHttpError } from '@/lib/api/http-errors';
 import { moderationApi, type Showing } from '../_lib/moderation.api';
 
-export function ModerationEventDetailView({ eventId }: { eventId: string }) {
-  const router = useRouter();
+export function ModerationEventDetailView({ eventId, basePath = '/moderator' }: { eventId: string; basePath?: string }) {
   const queryClient = useQueryClient();
+  const lock = useRef(false);
 
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -38,18 +38,24 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
   const eventHistory = historyQuery.data?.items ?? [];
 
   async function handleApprove() {
+    if (lock.current) return;
+    lock.current = true;
+    const revision = useAuthStore.getState().revision;
     setActionBusy(true);
     setActionError('');
     try {
       await moderationApi.approve(eventId);
+      if (useAuthStore.getState().revision !== revision) return;
       setApproveOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['moderator', 'event', eventId] }),
         queryClient.invalidateQueries({ queryKey: ['moderator', 'queue'] }),
         queryClient.invalidateQueries({ queryKey: ['moderator', 'event-history', eventId] }),
         queryClient.invalidateQueries({ queryKey: ['moderator', 'history'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'summary'] }),
       ]);
     } catch (err) {
+      if (useAuthStore.getState().revision !== revision) return;
       const error = formatHttpError(err);
       if (error.statusCode === 409) {
         setActionError('Sự kiện đã thay đổi hoặc đã được xử lý bởi người khác. Đang tải lại dữ liệu…');
@@ -58,21 +64,26 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
         setActionError(error.message);
       }
     } finally {
+      lock.current = false;
       setActionBusy(false);
     }
   }
 
   async function handleReject(e: React.FormEvent) {
     e.preventDefault();
+    if (lock.current) return;
+    const revision = useAuthStore.getState().revision;
     const reason = rejectReason.trim();
     if (!reason) {
       setActionError('Vui lòng nhập lý do từ chối.');
       return;
     }
+    lock.current = true;
     setActionBusy(true);
     setActionError('');
     try {
       await moderationApi.reject(eventId, reason);
+      if (useAuthStore.getState().revision !== revision) return;
       setRejectOpen(false);
       setRejectReason('');
       await Promise.all([
@@ -80,8 +91,10 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
         queryClient.invalidateQueries({ queryKey: ['moderator', 'queue'] }),
         queryClient.invalidateQueries({ queryKey: ['moderator', 'event-history', eventId] }),
         queryClient.invalidateQueries({ queryKey: ['moderator', 'history'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'summary'] }),
       ]);
     } catch (err) {
+      if (useAuthStore.getState().revision !== revision) return;
       const error = formatHttpError(err);
       if (error.statusCode === 409) {
         setActionError('Sự kiện đã thay đổi hoặc đã được xử lý bởi người khác. Đang tải lại dữ liệu…');
@@ -90,6 +103,7 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
         setActionError(error.message);
       }
     } finally {
+      lock.current = false;
       setActionBusy(false);
     }
   }
@@ -121,7 +135,7 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
               >
                 Thử lại
               </button>
-              <Link href="/moderator/events" className="tv-button tv-primary text-xs">
+              <Link href={`${basePath}/events`} className="tv-button tv-primary text-xs">
                 Quay lại hàng đợi
               </Link>
             </div>
@@ -139,7 +153,7 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
-          href="/moderator/events"
+          href={`${basePath}/events`}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900"
         >
           <ArrowLeft size={16} /> Quay lại hàng đợi
@@ -221,7 +235,8 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
               <p className="mt-4 text-sm text-slate-400">Đang tải suất diễn…</p>
             )}
 
-            {!showingsQuery.isLoading && showings.length === 0 && (
+            {showingsQuery.isError && <p role="alert" className="mt-4 text-sm text-rose-700">Không thể tải suất diễn. <button className="tv-button" onClick={() => void showingsQuery.refetch()}>Thử lại</button></p>}
+            {!showingsQuery.isLoading && !showingsQuery.isError && showings.length === 0 && (
               <p className="mt-4 text-sm italic text-slate-400">Sự kiện chưa thiết lập suất diễn nào.</p>
             )}
 
@@ -237,7 +252,8 @@ export function ModerationEventDetailView({ eventId }: { eventId: string }) {
             {historyQuery.isLoading && (
               <p className="mt-2 text-sm text-slate-400">Đang tải lịch sử…</p>
             )}
-            {!historyQuery.isLoading && eventHistory.length === 0 && (
+            {historyQuery.isError && <p role="alert" className="mt-4 text-sm text-rose-700">Không thể tải lịch sử. <button className="tv-button" onClick={() => void historyQuery.refetch()}>Thử lại</button></p>}
+            {!historyQuery.isLoading && !historyQuery.isError && eventHistory.length === 0 && (
               <p className="mt-2 text-sm text-slate-500">Chưa ghi nhận quyết định nào trước đó.</p>
             )}
             {!historyQuery.isLoading && eventHistory.length > 0 && (
@@ -429,7 +445,8 @@ function ShowingReviewCard({ showing }: { showing: Showing }) {
       {open && (
         <div className="mt-3 border-t border-slate-200/60 pt-3">
           {ticketsQuery.isLoading && <p className="text-xs text-slate-400">Đang tải hạng vé…</p>}
-          {!ticketsQuery.isLoading && tickets.length === 0 && <p className="text-xs italic text-slate-400">Chưa có hạng vé nào.</p>}
+          {ticketsQuery.isError && <p role="alert" className="text-xs text-rose-700">Không thể tải hạng vé. <button className="tv-button" onClick={() => void ticketsQuery.refetch()}>Thử lại</button></p>}
+          {!ticketsQuery.isLoading && !ticketsQuery.isError && tickets.length === 0 && <p className="text-xs italic text-slate-400">Chưa có hạng vé nào.</p>}
           {!ticketsQuery.isLoading && tickets.length > 0 && (
             <div className="space-y-2">
               {tickets.map(t => (

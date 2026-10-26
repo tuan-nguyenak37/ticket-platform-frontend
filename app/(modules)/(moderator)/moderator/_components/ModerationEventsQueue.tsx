@@ -3,9 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Search, RotateCw, Calendar, Tag, ShieldAlert } from 'lucide-react';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
-import { moderationApi, type ModerationEventSummary } from '../_lib/moderation.api';
+import { moderationApi } from '../_lib/moderation.api';
 
-export function ModerationEventsQueue() {
+export function ModerationEventsQueue({ basePath = '/moderator' }: { basePath?: string }) {
   const { params, page, update } = useUrlFilters();
   const q = params.get('q') ?? '';
   const categoryId = params.get('categoryId') ?? '';
@@ -60,6 +60,7 @@ export function ModerationEventsQueue() {
             <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               name="search"
+              aria-label="Tìm sự kiện theo tiêu đề"
               defaultValue={q}
               key={q}
               placeholder="Tìm theo tiêu đề sự kiện…"
@@ -67,13 +68,14 @@ export function ModerationEventsQueue() {
             />
           </div>
           <select
+            aria-label="Lọc theo danh mục"
             value={categoryId}
             onChange={e => update({ categoryId: e.target.value || undefined, page: 1 })}
             className="tv-input !mt-0 sm:w-56 text-sm"
           >
             <option value="">Tất cả danh mục</option>
-            {categories.map((c: any) => (
-              <option key={c.categoryId} value={c.categoryId}>{c.name}</option>
+            {categories.map(category => (
+              <option key={category.categoryId} value={category.categoryId}>{category.name}</option>
             ))}
           </select>
           <button type="submit" className="tv-button tv-primary !min-h-[44px]">
@@ -135,7 +137,7 @@ export function ModerationEventsQueue() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map((ev: any) => (
+                  {items.map(ev => (
                     <tr key={ev.eventId} className="hover:bg-slate-50/50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -156,7 +158,7 @@ export function ModerationEventsQueue() {
                       <td className="px-6 py-4">
                         <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                           <Tag size={12} />
-                          {categories.find((c: any) => c.categoryId === ev.categoryId)?.name ?? ev.categoryId}
+                          {categories.find(category => category.categoryId === ev.categoryId)?.name ?? ev.categoryId}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-500">
@@ -169,7 +171,7 @@ export function ModerationEventsQueue() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <Link
-                          href={`/moderator/events/${ev.eventId}`}
+                          href={`${basePath}/events/${encodeURIComponent(ev.eventId)}`}
                           className="tv-button tv-primary !min-h-[36px] px-3 py-1 text-xs"
                         >
                           Xem xét

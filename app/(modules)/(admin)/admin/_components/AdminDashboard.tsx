@@ -7,6 +7,7 @@ import { adminApi, type UpdateUserInput } from '../_lib/admin.api';
 import type { User } from '@/lib/auth/types/userInterface';
 import { Failure, Pagination } from '@/components/ui/commerce';
 import { Dialog } from '@/components/ui/Dialog';
+import { formatHttpError } from '@/lib/api/http-errors';
 
 const dateFormat = new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short' });
 
@@ -19,6 +20,7 @@ export function AdminDashboard() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<User | null>(null);
   const [statusTarget, setStatusTarget] = useState<User | null>(null);
+  const [roleTarget, setRoleTarget] = useState<User | null>(null);
 
   const query = useQuery({
     queryKey: ['admin', 'users', adminUser?.user_id, revision],
@@ -38,12 +40,12 @@ export function AdminDashboard() {
   const visibleUsers = filtered.slice((visiblePage - 1) * 20, visiblePage * 20);
 
   return (
-    <div className="commerce mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6">
+    <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold tracking-wider text-[#d2adff]">HỆ THỐNG QUẢN TRỊ</p>
           <h1 className="mt-1 text-3xl font-bold">Quản lý người dùng</h1>
-          <p className="mt-1 text-sm tv-muted">Tra cứu tài khoản, tạo mới người dùng và điều chỉnh trạng thái hoạt động.</p>
+          <p className="mt-1 text-sm tv-muted">Tra cứu tài khoản, điều chỉnh trạng thái và cấp hoặc thu hồi quyền kiểm duyệt.</p>
         </div>
         <button type="button" className="tv-button tv-primary" onClick={() => setCreateOpen(true)}>
           + Tạo tài khoản
@@ -105,6 +107,9 @@ export function AdminDashboard() {
                     <td className="py-3.5 px-4 text-xs tv-muted">{dateFormat.format(new Date(user.created_at))}</td>
                     <td className="py-3.5 pl-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {user.user_id !== adminUser?.user_id && user.status === 'ACTIVE' && (user.role === 'USER' || user.role === 'MODERATOR') && (
+                          <button type="button" className="tv-button !px-2.5 !text-xs" onClick={() => setRoleTarget(user)}>{user.role === 'USER' ? 'Cấp quyền duyệt' : 'Thu hồi quyền duyệt'}</button>
+                        )}
                         <button
                           type="button"
                           className="tv-button !min-h-[36px] !px-2.5 !text-xs"
@@ -141,6 +146,7 @@ export function AdminDashboard() {
           onCreated={() => {
             setCreateOpen(false);
             void cache.invalidateQueries({ queryKey: ['admin', 'users'] });
+            void cache.invalidateQueries({ queryKey: ['admin', 'summary'] });
           }}
         />
       )}
@@ -166,6 +172,13 @@ export function AdminDashboard() {
           }}
         />
       )}
+      {roleTarget && (
+        <UpdateRoleModal user={roleTarget} onClose={() => setRoleTarget(null)} onUpdated={() => {
+          setRoleTarget(null);
+          void cache.invalidateQueries({ queryKey: ['admin', 'users'] });
+          void cache.invalidateQueries({ queryKey: ['admin', 'summary'] });
+        }} />
+      )}
     </div>
   );
 }
@@ -186,7 +199,9 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
     setError(null);
     try {
       if (!fullName.trim()) throw new Error('Họ và tên không được để trống.');
+      const revision = useAuthStore.getState().revision;
       await adminApi.createUser({ fullName: fullName.trim(), email: email.trim(), password });
+      if (useAuthStore.getState().revision !== revision) return;
       onCreated();
     } catch (err) {
       setError(err);
@@ -199,7 +214,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   return (
     <Dialog title="Tạo tài khoản người dùng" onClose={onClose} busy={busy}>
       <form onSubmit={submit} className="space-y-4">
-        <p className="tv-notice">Tài khoản mới có vai trò USER. API hiện không cấp quyền ADMIN/MODERATOR hoặc gửi thư mời tự động.</p>
+        <p className="tv-notice">Tài khoản mới có vai trò USER. Sau khi tạo, có thể cấp quyền MODERATOR bằng thao tác riêng có xác nhận. Không cấp ADMIN tại đây.</p>
         <label className="block text-sm">
           Họ và tên (tối đa 150 ký tự)
           <input
@@ -249,6 +264,50 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   );
 }
 
+function UpdateRoleModal({ user, onClose, onUpdated }: { user: User; onClose: () => void; onUpdated: () => void }) {
+  const cache = useQueryClient();
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const lock = useRef(false);
+  const targetRole = user.role === 'USER' ? 'MODERATOR' : 'USER';
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (lock.current) return;
+    const session = useAuthStore.getState();
+    if (session.status !== 'authenticated' || session.user?.role !== 'ADMIN' || session.user.user_id === user.user_id) return;
+    if (user.role !== 'USER' && user.role !== 'MODERATOR') return;
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      if (!reason.trim()) throw new Error('Vui lòng nhập lý do thay đổi vai trò.');
+      await adminApi.updateRole(user.user_id, { role: targetRole, expectedRole: user.role, reason: reason.trim() });
+      if (useAuthStore.getState().revision === session.revision) onUpdated();
+    } catch (error) {
+      if (useAuthStore.getState().revision !== session.revision) return;
+      setError(error);
+      if (formatHttpError(error).statusCode === 409) void cache.invalidateQueries({ queryKey: ['admin', 'users'] });
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog title={targetRole === 'MODERATOR' ? 'Cấp quyền kiểm duyệt viên' : 'Thu hồi quyền kiểm duyệt viên'} onClose={onClose} busy={busy}>
+      <form onSubmit={submit} className="space-y-4">
+        <p className="break-words text-sm">Tài khoản: <strong>{user.email}</strong></p>
+        <p className="tv-notice">{user.role} → {targetRole}. Thao tác được lưu cùng lý do. Toàn bộ phiên đăng nhập của tài khoản này bị thu hồi; người dùng cần đăng nhập lại.</p>
+        <label className="block text-sm">Lý do thay đổi (bắt buộc, tối đa 1000 ký tự)<textarea required maxLength={1000} rows={3} value={reason} onChange={event => setReason(event.target.value)} className="tv-input" disabled={busy} /></label>
+        {error != null && <Failure error={error} />}
+        <div className="flex flex-wrap justify-end gap-3"><button type="button" className="tv-button" disabled={busy} onClick={onClose}>Hủy</button><button type="submit" className="tv-button tv-primary" disabled={busy}>{busy ? 'Đang xử lý…' : 'Xác nhận thay đổi quyền'}</button></div>
+      </form>
+    </Dialog>
+  );
+}
+
 function EditUserModal({ user, onClose, onSaved }: { user: User; onClose: () => void; onSaved: () => void }) {
   const [fullName, setFullName] = useState(user.full_name);
   const [phone, setPhone] = useState(user.phone_number || '');
@@ -272,7 +331,9 @@ function EditUserModal({ user, onClose, onSaved }: { user: User; onClose: () => 
         onClose();
         return;
       }
+      const revision = useAuthStore.getState().revision;
       const updated = await adminApi.updateUser(user.user_id, payload);
+      if (useAuthStore.getState().revision !== revision) return;
       if (useAuthStore.getState().user?.user_id === updated.user_id) useAuthStore.getState().updateUser(updated);
       onSaved();
     } catch (err) {
@@ -333,7 +394,9 @@ function UpdateStatusModal({ user, onClose, onUpdated }: { user: User; onClose: 
     setError(null);
     try {
       if (!reason.trim()) throw new Error('Vui lòng nhập lý do điều chỉnh trạng thái.');
+      const revision = useAuthStore.getState().revision;
       await adminApi.updateStatus(user.user_id, { status: targetStatus, reason: reason.trim() });
+      if (useAuthStore.getState().revision !== revision) return;
       onUpdated();
     } catch (err) {
       setError(err);

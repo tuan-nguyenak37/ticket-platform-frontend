@@ -5,7 +5,7 @@ import { RotateCw, History, CheckCircle2, XCircle, Search } from 'lucide-react';
 import { useUrlFilters } from '@/hooks/useUrlFilters';
 import { moderationApi, type ReviewAction } from '../_lib/moderation.api';
 
-export function ModerationReviewHistoryList() {
+export function ModerationReviewHistoryList({ basePath = '/moderator' }: { basePath?: string }) {
   const { params, page, update } = useUrlFilters();
   const eventId = params.get('eventId') ?? '';
   const action = (params.get('action') as ReviewAction) || undefined;
@@ -53,6 +53,7 @@ export function ModerationReviewHistoryList() {
             <Search size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               name="eventId"
+              aria-label="Lọc lịch sử theo mã sự kiện"
               defaultValue={eventId}
               key={eventId}
               placeholder="Lọc theo mã sự kiện (ví dụ: evt_...)"
@@ -60,6 +61,7 @@ export function ModerationReviewHistoryList() {
             />
           </form>
           <select
+            aria-label="Lọc theo quyết định"
             value={action ?? ''}
             onChange={e => update({ action: e.target.value || undefined, page: 1 })}
             className="tv-input !mt-0 sm:w-48 text-sm"
@@ -71,6 +73,7 @@ export function ModerationReviewHistoryList() {
         </div>
       </div>
 
+      {historyQuery.isError && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-800"><p>Không thể tải lịch sử kiểm duyệt.</p><button className="tv-button mt-3" onClick={() => void historyQuery.refetch()}>Thử lại</button></div>}
       {historyQuery.isLoading && (
         <div className="space-y-3">
           {[1, 2, 3, 4].map(i => (
@@ -104,14 +107,14 @@ export function ModerationReviewHistoryList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map((log: any) => (
+                  {items.map(log => (
                     <tr key={log.reviewId} className="hover:bg-slate-50/50">
                       <td className="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
                         {new Date(log.createdAt).toLocaleString('vi-VN')}
                       </td>
                       <td className="px-6 py-4">
                         <Link
-                          href={`/moderator/events/${log.eventId}`}
+                          href={`${basePath}/events/${encodeURIComponent(log.eventId)}`}
                           className="font-semibold text-violet-700 hover:underline"
                         >
                           {log.eventTitle || log.eventId}
