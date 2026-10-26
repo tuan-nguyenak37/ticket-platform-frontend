@@ -1,6 +1,6 @@
-import { RequireAuth } from '@/lib/auth/RequireAuth';
+import { CustomerPage } from '@/components/commerce/shared';
 import { ProfilePage } from './_components/ProfilePage';
 
 export default function AccountPage() {
-  return <RequireAuth><ProfilePage /></RequireAuth>;
+  return <CustomerPage title="Hồ sơ cá nhân"><ProfilePage /></CustomerPage>;
 }

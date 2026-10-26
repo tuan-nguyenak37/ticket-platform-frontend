@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ShieldCheck, UserRound } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { apiClient, logoutSession } from '@/lib/auth/session';
 import { unwrap } from '@/lib/api/response';
@@ -18,11 +18,7 @@ export function ProfilePage() {
     queryFn: async () => unwrap((await apiClient.get<ApiResponse<User>>('/users/me')).data),
     retry: false,
   });
-  return <main className="commerce mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-    <Link href="/" className="tv-muted text-sm hover:underline">← Về trang chủ</Link>
-    <header className="mb-8 mt-7"><p className="tv-muted text-xs font-semibold uppercase tracking-[.2em]">Tài khoản của bạn</p><h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Hồ sơ cá nhân</h1><p className="tv-muted mt-3">Thông tin chính xác, trải nghiệm đặt vé liền mạch.</p></header>
-    {query.isPending ? <div role="status" className="tv-panel animate-pulse py-16">Đang tải hồ sơ của bạn…</div> : query.isError ? <div role="alert" className="tv-panel space-y-4"><p>{formatHttpError(query.error).message}</p><button className="tv-button" onClick={() => void query.refetch()}>Tải lại hồ sơ</button></div> : <ProfileEditor key={`${user?.user_id}:${revision}`} profile={query.data} />}
-  </main>;
+  return query.isPending ? <div role="status" className="tv-panel py-16 tv-muted">Đang tải hồ sơ của bạn…</div> : query.isError ? <div role="alert" className="tv-panel space-y-4"><p>{formatHttpError(query.error).message}</p><button className="tv-button" onClick={() => void query.refetch()}>Tải lại hồ sơ</button></div> : <ProfileEditor key={`${user?.user_id}:${revision}`} profile={query.data} />;
 }
 
 function ProfileEditor({ profile }: { profile: User }) {
@@ -58,23 +54,21 @@ function ProfileEditor({ profile }: { profile: User }) {
     } catch (failure) { setError(formatHttpError(failure).message); }
     finally { setBusy(false); }
   }
-  return <div className="grid items-start gap-6 lg:grid-cols-[280px_1fr]">
-    <aside className="tv-panel space-y-6 lg:sticky lg:top-6">
-      <div className="flex items-center gap-4 lg:flex-col lg:items-start">
-        <div aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-violet-400/30 bg-gradient-to-br from-violet-500/25 to-fuchsia-400/10 text-2xl font-bold">{saved.full_name.trim().slice(0, 1).toUpperCase()}</div>
-        <div className="min-w-0"><p className="break-words text-lg font-semibold">{saved.full_name}</p><p className="tv-muted mt-1 break-all text-sm">{saved.email}</p></div>
+  return <div className="min-w-0 space-y-6">
+    <section className="tv-panel space-y-5" aria-label="Tóm tắt hồ sơ">
+      <div className="flex items-center gap-4">
+        <div aria-hidden="true" className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-[#9b6df566] bg-[#9b6df51a] text-2xl font-bold text-[#d2adff]">{saved.full_name.trim().slice(0, 1).toUpperCase()}</div>
+        <div className="min-w-0"><h2 className="break-words text-balance text-xl font-semibold">{saved.full_name}</h2><p className="mt-1 break-all text-sm tv-muted">{saved.email}</p></div>
       </div>
-      <nav aria-label="Cài đặt tài khoản" className="flex flex-wrap gap-2 lg:flex-col"><a href="#personal" className="tv-button justify-start">Thông tin cá nhân</a><a href="#security" className="tv-button justify-start">Bảo mật</a></nav>
-      <p className="tv-muted text-xs leading-6">Email được dùng cho tài khoản và nhận vé. Bạn chưa thể thay đổi email tại đây.</p>
-    </aside>
-    <div className="min-w-0 space-y-6">
-      <section id="personal" aria-labelledby="personal-title" className="tv-panel scroll-mt-6">
-        <h2 id="personal-title" className="text-xl font-semibold">Thông tin cá nhân</h2><p className="tv-muted mt-2 text-sm">Cập nhật cách chúng tôi liên hệ với bạn.</p>
+      <nav aria-label="Cài đặt tài khoản" className="flex flex-wrap gap-2 border-t border-white/10 pt-4"><a href="#personal" className="tv-button"><UserRound size={17} aria-hidden="true" />Thông tin cá nhân</a><a href="#security" className="tv-button"><ShieldCheck size={17} aria-hidden="true" />Bảo mật</a></nav>
+    </section>
+      <section id="personal" aria-labelledby="personal-title" className="tv-panel scroll-mt-28">
+        <h2 id="personal-title" className="flex items-center gap-3 text-balance text-xl font-semibold"><UserRound size={22} className="shrink-0 text-[#d2adff]" aria-hidden="true" />Thông tin cá nhân</h2><p className="mt-2 text-pretty text-sm leading-6 tv-muted">Cập nhật họ tên và số điện thoại. Email đăng nhập được dùng để nhận vé và chưa thể thay đổi tại đây.</p>
         <form onSubmit={save} className="mt-6 space-y-5">
-          <fieldset disabled={busy} className="space-y-5">
+          <fieldset disabled={busy} className="grid min-w-0 gap-5 sm:grid-cols-2">
             <div><label htmlFor="profile-name">Họ và tên <span aria-hidden="true">*</span></label><input id="profile-name" className="tv-input" autoComplete="name" required maxLength={150} value={name} onChange={event => { setName(event.target.value); setMessage(''); }} /></div>
-            <div><label htmlFor="profile-email">Địa chỉ email</label><input id="profile-email" className="tv-input opacity-70" type="email" readOnly value={saved.email} aria-describedby="email-help" /><p id="email-help" className="tv-muted mt-2 text-xs">Email đăng nhập · Không thể chỉnh sửa</p></div>
             <div><label htmlFor="profile-phone">Số điện thoại <span className="tv-muted">(không bắt buộc)</span></label><input id="profile-phone" className="tv-input" type="tel" autoComplete="tel" maxLength={21} value={phone} onChange={event => { setPhone(event.target.value); setMessage(''); }} aria-describedby="phone-help" /><p id="phone-help" className="tv-muted mt-2 text-xs">7–20 chữ số, có thể bắt đầu bằng +. Để trống để xóa số đã lưu.</p></div>
+            <div className="min-w-0 sm:col-span-2"><label htmlFor="profile-email">Địa chỉ email</label><input id="profile-email" className="tv-input" type="email" autoComplete="email" readOnly value={saved.email} aria-describedby="email-help" /><p id="email-help" className="tv-muted mt-2 text-xs">Email đăng nhập · Không thể chỉnh sửa</p></div>
           </fieldset>
           {error && <p role="alert" className="text-sm text-rose-300">{error}</p>}
           <p role="status" className="text-sm text-emerald-300">{message}</p>
@@ -82,7 +76,6 @@ function ProfileEditor({ profile }: { profile: User }) {
         </form>
       </section>
       <PasswordForm disabled={busy} />
-    </div>
   </div>;
 }
 
@@ -108,8 +101,8 @@ function PasswordForm({ disabled }: { disabled: boolean }) {
     } catch (failure) { setError(formatHttpError(failure).message); }
     finally { setBusy(false); }
   }
-  return <section id="security" aria-labelledby="security-title" className="tv-panel scroll-mt-6">
-    <h2 id="security-title" className="text-xl font-semibold">Bảo mật tài khoản</h2><p className="tv-muted mt-2 text-sm">Sau khi đổi mật khẩu, bạn cần đăng nhập lại trên các thiết bị.</p>
+  return <section id="security" aria-labelledby="security-title" className="tv-panel scroll-mt-28">
+    <h2 id="security-title" className="flex items-center gap-3 text-balance text-xl font-semibold"><ShieldCheck size={22} className="shrink-0 text-[#d2adff]" aria-hidden="true" />Bảo mật tài khoản</h2><p className="mt-2 text-pretty text-sm leading-6 tv-muted">Sau khi đổi mật khẩu, bạn cần đăng nhập lại trên các thiết bị.</p>
     <form onSubmit={submit} className="mt-6 space-y-5">
       <fieldset disabled={busy || disabled} className="space-y-5">
         <div><label htmlFor="password-current">Mật khẩu hiện tại</label><input id="password-current" className="tv-input" type={visible ? 'text' : 'password'} autoComplete="current-password" required value={current} onChange={event => setCurrent(event.target.value)} /></div>

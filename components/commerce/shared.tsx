@@ -6,14 +6,24 @@ import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth/auth.store';
 import { RequireAuth } from '@/lib/auth/RequireAuth';
 import { SiteShell } from '@/components/layout/SiteShell';
-import { CommercePage } from '@/components/ui/commerce';
+import { ArrowRightLeft, ShoppingBag, Ticket, UserRound } from 'lucide-react';
 
 export function CustomerPage({ title, children, publicView = false }: { title: string; children: ReactNode; publicView?: boolean }) {
   const revision = useAuthStore(state => state.revision);
   const pathname = usePathname();
-  const content = <CommercePage title={title}><nav aria-label="Mua và quản lý vé" className="flex flex-wrap gap-2">{[
-    ['/account/tickets', 'Vé của tôi'], ['/account/orders', 'Đơn mua vé'], ['/account/resale', 'Giao dịch bán lại'], ['/pass', 'Chợ vé'],
-  ].map(([href, label]) => <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined} className={`tv-button ${pathname === href ? 'tv-primary' : ''}`}>{label}</Link>)}</nav><div key={publicView ? 'public' : revision}>{children}</div></CommercePage>;
+  if (pathname.startsWith('/checkout/')) return <SiteShell><RequireAuth><div className="commerce mx-auto w-full max-w-7xl px-4 py-6 md:px-8"><div key={revision}>{children}</div></div></RequireAuth></SiteShell>;
+  const content = <div className="commerce mx-auto w-full max-w-7xl space-y-7 px-4 py-6 md:px-8">
+    <header className="border-b border-white/10 pb-6"><p className="mb-2 text-xs font-semibold text-[#d2adff]">TICKETVERSE / TÀI KHOẢN</p><h1 className="text-balance text-3xl font-bold">{title}</h1><p className="mt-3 text-sm tv-muted">Những cuộc hẹn, tấm vé và giao dịch của bạn.</p></header>
+    <div className="grid items-start gap-7 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <aside className="tv-panel min-w-0 lg:sticky lg:top-28"><p className="mb-4 flex items-center gap-3 font-semibold"><UserRound size={21} aria-hidden="true" />Tài khoản của bạn</p><nav aria-label="Mua và quản lý vé" className="flex gap-2 overflow-x-auto pb-1 lg:flex-col">{[
+        { href: '/account', label: 'Hồ sơ cá nhân', Icon: UserRound },
+        { href: '/account/tickets', label: 'Vé của tôi', Icon: Ticket },
+        { href: '/account/orders', label: 'Đơn mua vé', Icon: ShoppingBag },
+        { href: '/account/resale', label: 'Giao dịch bán lại', Icon: ArrowRightLeft },
+      ].map(({ href, label, Icon }) => { const active = pathname === href || (href !== '/account' && pathname.startsWith(`${href}/`)); return <Link key={href} href={href} aria-current={active ? 'page' : undefined} className={`tv-button shrink-0 justify-start ${active ? 'tv-primary' : 'border-transparent'}`}><Icon size={18} aria-hidden="true" />{label}</Link>; })}</nav><Link className="mt-4 hidden border-t border-white/10 pt-4 text-sm text-[#d2adff] lg:block" href="/pass">Khám phá chợ vé bán lại</Link></aside>
+      <div className="min-w-0" key={publicView ? 'public' : revision}>{children}</div>
+    </div>
+  </div>;
   return <SiteShell>{publicView ? content : <RequireAuth>{content}</RequireAuth>}</SiteShell>;
 }
 const labels: Record<string, string> = {

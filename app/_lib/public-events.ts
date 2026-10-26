@@ -12,6 +12,8 @@ export interface PublicEvent {
   description: string | null;
   posterUrl: string | null;
   createdAt: string;
+  nextShowingAt?: string | null;
+  minPrice?: string | null;
 }
 
 export interface EventCategory {
