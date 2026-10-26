@@ -19,9 +19,12 @@ Query keys include user ID and session revision. The workspace remounts on sessi
 
 Implemented, not end-to-end accepted: no authenticated OWNER browser session has been provided or used to verify real API writes and reloads. Do not label these workflows complete until that validation succeeds.
 
-Executed: Organizer ESLint; isolated TypeScript check excluding stale `.next/dev` route types; `node --test tests/organizer.test.cjs` for VND and Vietnam timezone helpers.
-
-The normal typecheck currently encounters stale `.next/dev/types/validator.ts` imports referencing removed root `app` routes. No unrelated files were deleted to hide that issue.
+Historical checks included Organizer ESLint, an isolated TypeScript check and
+`node --test tests/organizer.test.cjs` for VND and Vietnam timezone helpers.
+These are not verification of the current commit batch. Current checks use
+`npx next typegen` followed by the normal typecheck; see
+[verification status](verification-status.md), including the pending check-in
+and operator API alignment.
 
 ## Acceptance checklist using permitted test data
 
@@ -33,5 +36,34 @@ The normal typecheck currently encounters stale `.next/dev/types/validator.ts` i
 6. Log out or switch accounts with requests in flight: no previous Organizer data or open form survives. Open foreign or mismatched resource URLs and check access messages.
 7. Check mobile, keyboard navigation, dialog focus, error/retry and form preservation on network failures.
 
-No backend files, migrations, dashboards, reports or resale transactions are included.
+## Sales reports
+
+Organizer and event workspaces expose OWNER-only sales reports using the existing
+`GET /api/v1/organizers/:id/report` and
+`GET /api/v1/organizers/:id/events/:eventId/report` APIs. The backend also returns
+each showing's start time so identically named showings remain distinguishable.
+
+Event and showing filters operate on the complete authorized report, not a
+paginated subset. Event-specific reports lock their event. The summary, table,
+totals footer and CSV all use the same filtered rows. Dates use Vietnam time;
+VND and counts retain integer precision with BigInt. Unsold tiers show zero.
+
+“Tổng thu” means all-time original orders currently marked PAID, using their
+actual total after discounts. Free paid orders count as orders and tickets with
+zero receipts. Pending, cancelled, expired and resale orders are excluded.
+This is not profit, net proceeds or a payout balance; fees, refunds and payouts
+are not deducted.
+
+CSV export uses UTF-8 BOM, CRLF, quoted/escaped cells, spreadsheet-formula
+neutralization and raw integer VND. It includes event/showing/tier identifiers,
+showing start time, paid order count, ticket count and receipts, plus a total.
+It contains no buyer or bank details. Loading/error/empty states disable export;
+session-scoped queries and a session check protect against stale exports.
+
+Automated coverage: `node --test tests/organizer-report.test.cjs` covers filters,
+precision, CSV, session changes, loading/errors and download cleanup. Backend
+acceptance follows its current release checklist; the historical local
+`scripts/test-event-operations.cjs` is not in the curated repository.
+Authenticated OWNER browser acceptance remains
+pending; no migration, new export endpoint or dependency is required.
 

@@ -1,7 +1,9 @@
 export function vnd(value: string | number) { return `${new Intl.NumberFormat('vi-VN').format(BigInt(value))} ₫`; }
 export function parseVnd(value: string) {
-  if (!/^(0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(Number(value))) throw new Error('Giá phải là số nguyên VND an toàn.');
-  return Number(value);
+  if (!/^(0|[1-9]\d*|[1-9]\d{0,2}(?:\.\d{3})+)$/.test(value)) throw new Error('Nhập giá VND nguyên không âm, ví dụ 230000 hoặc 230.000.');
+  const amount = Number(value.replace(/\./g, ''));
+  if (!Number.isSafeInteger(amount)) throw new Error('Giá vượt giới hạn số nguyên VND an toàn.');
+  return amount;
 }
 export function vnInput(value: string | null) {
   if (!value) return '';

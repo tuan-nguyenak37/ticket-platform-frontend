@@ -14,14 +14,28 @@ export type ShowingInput = Pick<Showing, 'name' | 'startTime' | 'endTime' | 'ven
 export type TicketInput = Pick<TicketType, 'name' | 'description'> & { price: number; totalQuantity: number; saleStartAt?: string; saleEndAt?: string; maxPerOrder?: number; resaleAllowed?: boolean; status?: TicketType['status'] };
 export type PayoutAccount = { bankName: string; accountHolder: string; accountNumber: string; updatedAt?: string };
 export type Readiness = { ready: boolean; issues: { code: string; step: number; field: string; resourceId: string; message: string }[] };
-export type Report = { totals: { orderCount: string; ticketCount: string; amount: string }; rows: { eventId: string; eventTitle: string; showingId: string; showingName: string; ticketTypeId: string; ticketTypeName: string; orderCount: string; ticketCount: string; amount: string }[] };
+export type Report = { totals: { orderCount: string; ticketCount: string; amount: string }; rows: { eventId: string; eventTitle: string; showingId: string; showingName: string; showingStartTime: string; ticketTypeId: string; ticketTypeName: string; orderCount: string; ticketCount: string; amount: string }[] };
 export type TicketUpdate = Partial<Omit<TicketInput, 'price'> & { price: number; saleStartAt: string; saleEndAt: string; maxPerOrder: number; resaleAllowed: boolean; status: TicketType['status'] }>;
+export type Discount = { discountId: string; code: string; kind: 'PERCENT' | 'FIXED'; value: number; usageLimit: number; usedOrReserved: number; startsAt: string; endsAt: string; active: boolean };
+export type EventOperator = { userId: string; fullName: string; email: string };
+export type Attendee = { ticketId: string; status: string; checkedInAt: string | null; fullName: string; email: string; ticketTypeName: string; showingName: string; orderId: string; answers: { questionId: string; label: string; value: string }[] };
+export type Attendees = Page<Attendee> & { checkedIn: number; showings: { showingId: string; name: string }[] };
 
 async function get<T>(path: string, signal?: AbortSignal) { return unwrap((await apiClient.get<ApiResponse<T>>(path, { signal })).data); }
 async function post<T>(path: string, body?: unknown) { return unwrap((await apiClient.post<ApiResponse<T>>(path, body)).data); }
 async function patch<T>(path: string, body: unknown) { return unwrap((await apiClient.patch<ApiResponse<T>>(path, body)).data); }
 async function remove(path: string) { await apiClient.delete(path); }
 export const organizerApi = {
+  discounts: (id: string, signal?: AbortSignal) => get<Discount[]>(`/v1/events/${id}/discounts`, signal),
+  createDiscount: (id: string, body: Pick<Discount, 'code' | 'kind' | 'value' | 'usageLimit' | 'startsAt' | 'endsAt'>) => post<Discount>(`/v1/events/${id}/discounts`, body),
+  discountStatus: (id: string, code: string, active: boolean) => patch<Discount>(`/v1/events/${id}/discounts/${encodeURIComponent(code)}`, { active }),
+  operators: (id: string, signal?: AbortSignal) => get<EventOperator[]>(`/v1/events/${id}/operators`, signal),
+  addOperator: (id: string, email: string) => post<EventOperator>(`/v1/events/${id}/operators`, { email }),
+  removeOperator: (id: string, userId: string) => remove(`/v1/events/${id}/operators/${encodeURIComponent(userId)}`),
+  assigned: (signal?: AbortSignal) => get<{ eventId: string; title: string; organizerName: string; organizerId: string }[]>('/v1/event-operations/mine', signal),
+  attendees: (id: string, page: number, showingId: string, signal?: AbortSignal) => get<Attendees>(`/v1/events/${id}/attendees?page=${page}${showingId ? '&showingId=' + encodeURIComponent(showingId) : ''}`, signal),
+  exportAttendees: async (id: string, showingId: string) => (await apiClient.get<Blob>(`/v1/events/${id}/attendees/export${showingId ? '?showingId=' + encodeURIComponent(showingId) : ''}`, { responseType: 'blob' })).data,
+  checkIn: (id: string, payload: string) => post<{ ticketId: string; checkedInAt: string; alreadyCheckedIn: boolean }>(`/v1/events/${id}/check-in`, { payload }),
   payout: (id: string, signal?: AbortSignal) => get<PayoutAccount | null>('/v1/organizers/' + id + '/payout-account', signal),
   savePayout: async (id: string, body: PayoutAccount) => unwrap((await apiClient.put<ApiResponse<PayoutAccount>>('/v1/organizers/' + id + '/payout-account', body)).data),
   readiness: (id: string, signal?: AbortSignal) => get<Readiness>('/v1/events/' + id + '/readiness', signal),
@@ -49,4 +63,3 @@ export const organizerApi = {
 };
 
 export { vnd, parseVnd, vnInput, vnWire } from './organizer.utils';
-

@@ -11,7 +11,9 @@ const { parseVnd, vnInput, vnWire, vnd } = exportsObject;
 test('VND accepts zero and maximum safe integer without rounding', () => {
   assert.equal(parseVnd('0'), 0);
   assert.equal(parseVnd('9007199254740991'), Number.MAX_SAFE_INTEGER);
-  for (const value of ['-1', '1.5', '1e3', '1,000', '', '9007199254740992']) assert.throws(() => parseVnd(value));
+  assert.equal(parseVnd('230.000'), 230000);
+  assert.equal(parseVnd('9.007.199.254.740.991'), Number.MAX_SAFE_INTEGER);
+  for (const value of ['-1', '1.5', '1e3', '1,000', '', '9007199254740992', '9.007.199.254.740.992', '23.00', '1..000', '0.000', '230.000 VND']) assert.throws(() => parseVnd(value));
   assert.match(vnd('1500000'), /1\.500\.000/);
 });
 test('Vietnam datetime conversion uses explicit offset and is machine timezone independent', () => {
